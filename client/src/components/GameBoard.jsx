@@ -16,6 +16,8 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
   const [isYourTurnNew, setIsYourTurnNew] = useState(false);
   const [cardPlayed, setCardPlayed] = useState(null);
   const [drawnCard, setDrawnCard] = useState(null);
+  const [playableDrawnCard, setPlayableDrawnCard] = useState(null);
+  const [drawnCardMessage, setDrawnCardMessage] = useState('');
 
   if (!gameState) return null;
 
@@ -30,6 +32,22 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
       setTimeout(() => setIsYourTurnNew(false), 800);
     }
   }, [isMyTurn]);
+
+  // Listen for drawn card that can be played
+  React.useEffect(() => {
+    const handleCardDrawn = ({ card, message }) => {
+      setPlayableDrawnCard(card);
+      setDrawnCardMessage(message);
+      // Auto-clear message after 8 seconds if not played
+      setTimeout(() => {
+        setPlayableDrawnCard(null);
+        setDrawnCardMessage('');
+      }, 8000);
+    };
+
+    socket.on('card:drawn', handleCardDrawn);
+    return () => socket.off('card:drawn', handleCardDrawn);
+  }, [socket]);
 
   const canPlayCard = (card) => {
     if (!isMyTurn) return false;
@@ -50,6 +68,9 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
       setSelectedCard(card.id);
       setCardPlayed(card.id);
       setTimeout(() => setCardPlayed(null), 600);
+      // Clear playable drawn card notification
+      setPlayableDrawnCard(null);
+      setDrawnCardMessage('');
       socket.emit('card:play', { cardId: card.id });
       setSelectedCard(null);
     }
@@ -58,6 +79,9 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
   const handleColorChoice = (color) => {
     setCardPlayed(pendingWild.id);
     setTimeout(() => setCardPlayed(null), 600);
+    // Clear playable drawn card notification
+    setPlayableDrawnCard(null);
+    setDrawnCardMessage('');
     socket.emit('card:play', { cardId: pendingWild.id, chosenColor: color });
     setShowColorPicker(false);
     setPendingWild(null);
@@ -206,6 +230,28 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
       position: 'relative',
     }}>
       <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+
+      {/* Playable drawn card notification */}
+      {playableDrawnCard && (
+        <div style={{
+          position: 'fixed',
+          top: 20,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'linear-gradient(135deg, #2ed573 0%, #1ecc71 100%)',
+          color: '#fff',
+          padding: '14px 28px',
+          borderRadius: 12,
+          zIndex: 998,
+          fontFamily: "'Poppins', sans-serif",
+          boxShadow: '0 8px 24px rgba(46,213,115,0.4)',
+          fontWeight: 600,
+          fontSize: 14,
+          animation: 'slideDown 0.4s ease-out',
+        }}>
+          {drawnCardMessage}
+        </div>
+      )}
 
       {/* Top bar */}
       <div style={{
@@ -623,8 +669,21 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
                 key={card.id}
                 style={{
                   animation: cardPlayed === card.id ? 'cardFly 0.6s ease-in-out forwards' : (isYourTurnNew && isMyTurn && canPlayCard(card)) ? 'cardGlow 0.8s ease-out' : 'none',
+                  position: 'relative',
                 }}
               >
+                {/* Highlight drawn card */}
+                {playableDrawnCard && card.id === playableDrawnCard.id && (
+                  <div style={{
+                    position: 'absolute',
+                    inset: -8,
+                    borderRadius: 12,
+                    border: '3px solid #2ed573',
+                    boxShadow: '0 0 20px rgba(46,213,115,0.6)',
+                    pointerEvents: 'none',
+                    animation: 'pulse-border 1s ease-in-out infinite',
+                  }} />
+                )}
                 <UnoCard
                   card={card}
                   onClick={() => handleCardClick(card)}
@@ -798,6 +857,10 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
           0% { filter: drop-shadow(0 0 0px transparent); }
           50% { filter: drop-shadow(0 0 20px rgba(255,255,255,0.4)); }
           100% { filter: drop-shadow(0 0 0px transparent); }
+        }
+        @keyframes pulse-border {
+          0%, 100% { box-shadow: 0 0 20px rgba(46,213,115,0.6); }
+          50% { box-shadow: 0 0 30px rgba(46,213,115,1); }
         }
       `}</style>
     </div>
