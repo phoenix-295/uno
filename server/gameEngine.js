@@ -171,13 +171,17 @@ function drawCard(game, playerId) {
   // Check if drawn card is playable
   const topCard = game.discardPile[game.discardPile.length - 1];
   const drawnCard = drawn[0];
-  if (drawnCard && canPlay(drawnCard, topCard, game.currentColor)) {
-    // Player can play it, but doesn't have to - advance turn
-  }
+  const canPlayDrawn = drawnCard && canPlay(drawnCard, topCard, game.currentColor);
 
-  // Advance turn
-  game.currentPlayerIndex = nextPlayerIndex(game);
-  return { success: true, game, drawn };
+  // If the drawn card is playable, DON'T advance turn yet
+  // Let the player decide if they want to play it
+  if (!canPlayDrawn) {
+    // Card not playable, advance turn immediately
+    game.currentPlayerIndex = nextPlayerIndex(game);
+  }
+  // If playable, turn stays with current player to let them play it
+
+  return { success: true, game, drawn, canPlayDrawn };
 }
 
 function callUno(game, playerId) {

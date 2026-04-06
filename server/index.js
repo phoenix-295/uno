@@ -149,6 +149,16 @@ io.on('connection', (socket) => {
       socket.emit('game:error', result.error);
       return;
     }
+
+    // If the drawn card is playable, notify the player
+    if (result.canPlayDrawn && result.drawn && result.drawn[0]) {
+      const drawnCard = result.drawn[0];
+      socket.emit('card:drawn', {
+        card: drawnCard,
+        message: `🎉 You drew a ${drawnCard.color} ${drawnCard.value}! You can play it now or skip.`
+      });
+    }
+
     broadcastRoom(roomId);
   });
 
