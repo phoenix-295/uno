@@ -1,10 +1,10 @@
 import React from 'react';
 
 const COLOR_MAP = {
-  red: { bg: '#e63946', text: '#fff', shadow: '#c1121f' },
-  green: { bg: '#2d9e5f', text: '#fff', shadow: '#1a7a45' },
-  blue: { bg: '#1d7bbf', text: '#fff', shadow: '#0d5a8f' },
-  yellow: { bg: '#f4c430', text: '#1a1a1a', shadow: '#c9940a' },
+  red: { bg: '#ff4757', text: '#fff', shadow: '#ff6348' },
+  green: { bg: '#2ed573', text: '#fff', shadow: '#1ecc71' },
+  blue: { bg: '#1e90ff', text: '#fff', shadow: '#0066ff' },
+  yellow: { bg: '#ffa502', text: '#1a1a1a', shadow: '#ff8c00' },
   wild: { bg: '#1a1a2e', text: '#fff', shadow: '#000' },
 };
 
@@ -16,7 +16,7 @@ const VALUE_DISPLAY = {
   wild4: '+4',
 };
 
-export default function UnoCard({ card, onClick, selected, playable, small }) {
+export default function UnoCard({ card, onClick, selected, playable, small, isYourTurn }) {
   const colors = COLOR_MAP[card.color] || COLOR_MAP.wild;
   const displayValue = VALUE_DISPLAY[card.value] || card.value;
   const isSpecial = !!VALUE_DISPLAY[card.value];
@@ -32,66 +32,128 @@ export default function UnoCard({ card, onClick, selected, playable, small }) {
         width: size.width,
         height: size.height,
         background: colors.bg,
-        borderRadius: 8,
-        border: selected ? '3px solid #fff' : '2px solid rgba(255,255,255,0.2)',
+        borderRadius: 10,
+        border: selected
+          ? '3px solid #fff'
+          : '2px solid rgba(255,255,255,0.15)',
         boxShadow: selected
-          ? `0 0 18px 4px ${colors.bg}, 0 4px 12px ${colors.shadow}`
-          : `0 3px 8px ${colors.shadow}88`,
+          ? `0 0 24px 6px ${colors.bg}, 0 8px 16px ${colors.shadow}99`
+          : playable
+          ? `0 4px 16px ${colors.shadow}66`
+          : `0 3px 8px ${colors.shadow}44`,
         cursor: onClick ? (playable ? 'pointer' : 'not-allowed') : 'default',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        transform: selected ? 'translateY(-12px)' : playable ? 'translateY(-4px)' : 'none',
-        transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-        opacity: onClick && !playable ? 0.55 : 1,
+        transform: selected
+          ? 'translateY(-14px) scale(1.02)'
+          : playable
+          ? 'translateY(-6px)'
+          : 'none',
+        transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease',
+        opacity: onClick && !playable ? 0.5 : 1,
         flexShrink: 0,
         userSelect: 'none',
+        animation: 'cardFlip 0.5s ease-out',
       }}
     >
       {/* Oval center */}
-      <div style={{
-        width: '72%', height: '75%',
-        background: 'rgba(255,255,255,0.15)',
-        borderRadius: '50%',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: '2px solid rgba(255,255,255,0.3)',
-      }}>
-        <span style={{
-          color: colors.text,
-          fontSize: size.fontSize,
-          fontFamily: "'Righteous', cursive",
-          fontWeight: 700,
-          textShadow: '1px 1px 3px rgba(0,0,0,0.4)',
-          letterSpacing: isSpecial ? 0 : 1,
-        }}>
+      <div
+        style={{
+          width: '72%',
+          height: '75%',
+          background: 'rgba(255,255,255,0.12)',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: '2px solid rgba(255,255,255,0.25)',
+        }}
+      >
+        <span
+          style={{
+            color: colors.text,
+            fontSize: size.fontSize,
+            fontFamily: "'Space Mono', monospace",
+            fontWeight: 700,
+            textShadow: '1px 1px 4px rgba(0,0,0,0.5)',
+            letterSpacing: isSpecial ? 0 : 2,
+          }}
+        >
           {displayValue.toUpperCase()}
         </span>
       </div>
 
       {/* Corner labels */}
-      <span style={{
-        position: 'absolute', top: 3, left: 5,
-        color: colors.text, fontSize: size.cornerFont,
-        fontFamily: "'Righteous', cursive", fontWeight: 700, opacity: 0.9,
-        lineHeight: 1,
-      }}>{displayValue}</span>
-      <span style={{
-        position: 'absolute', bottom: 3, right: 5,
-        color: colors.text, fontSize: size.cornerFont,
-        fontFamily: "'Righteous', cursive", fontWeight: 700, opacity: 0.9,
-        lineHeight: 1, transform: 'rotate(180deg)',
-      }}>{displayValue}</span>
+      <span
+        style={{
+          position: 'absolute',
+          top: 4,
+          left: 6,
+          color: colors.text,
+          fontSize: size.cornerFont,
+          fontFamily: "'Space Mono', monospace",
+          fontWeight: 700,
+          opacity: 0.85,
+          lineHeight: 1,
+          textShadow: '0.5px 0.5px 2px rgba(0,0,0,0.4)',
+        }}
+      >
+        {displayValue}
+      </span>
+      <span
+        style={{
+          position: 'absolute',
+          bottom: 4,
+          right: 6,
+          color: colors.text,
+          fontSize: size.cornerFont,
+          fontFamily: "'Space Mono', monospace",
+          fontWeight: 700,
+          opacity: 0.85,
+          lineHeight: 1,
+          transform: 'rotate(180deg)',
+          textShadow: '0.5px 0.5px 2px rgba(0,0,0,0.4)',
+        }}
+      >
+        {displayValue}
+      </span>
 
       {/* Wild color ring */}
       {card.color === 'wild' && card.chosenColor && (
-        <div style={{
-          position: 'absolute', bottom: -4, right: -4,
-          width: 14, height: 14, borderRadius: '50%',
-          background: COLOR_MAP[card.chosenColor]?.bg || '#fff',
-          border: '2px solid rgba(255,255,255,0.7)',
-        }} />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: -5,
+            right: -5,
+            width: 16,
+            height: 16,
+            borderRadius: '50%',
+            background: COLOR_MAP[card.chosenColor]?.bg || '#fff',
+            border: '3px solid rgba(255,255,255,0.8)',
+            boxShadow: `0 2px 8px ${COLOR_MAP[card.chosenColor]?.bg}88`,
+            animation: 'spin 2s linear infinite',
+          }}
+        />
       )}
+
+      <style>{`
+        @keyframes cardFlip {
+          from {
+            opacity: 0;
+            transform: rotateY(90deg) translateY(0);
+          }
+          to {
+            opacity: 1;
+            transform: rotateY(0deg) translateY(0);
+          }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
