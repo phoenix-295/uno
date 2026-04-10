@@ -7,6 +7,7 @@ const COLOR_MAP = {
 };
 
 const COLORS = ['red', 'green', 'blue', 'yellow'];
+const COLOR_DOT = ['#ff4757', '#2ed573', '#1e90ff', '#ffa502', '#9b5de5', '#ff6b9d', '#00d2d3', '#ffd93d'];
 
 export default function GameBoard({ socket, gameState, playerId, lobbyState, roomId }) {
   const [selectedCard, setSelectedCard] = useState(null);
@@ -216,7 +217,7 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
   }
 
   const currentPlayerObj = players[currentPlayerIndex];
-  const otherPlayers = players.filter(p => p.id !== playerId);
+  const nextPlayerIndex = ((currentPlayerIndex + gameState.direction) % players.length + players.length) % players.length;
 
   return (
     <div style={{
@@ -325,219 +326,213 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
 
-        {/* Other players */}
+        {/* Round Table */}
         <div style={{
-          display: 'flex',
-          gap: 12,
-          padding: '16px 24px',
-          overflowX: 'auto',
-          flexShrink: 0,
-          scrollbarWidth: 'none',
-          animation: 'slideInDown 0.6s ease-out 0.1s backwards',
+          flex: 1,
+          position: 'relative',
+          minHeight: 300,
+          overflow: 'visible',
         }}>
-          {otherPlayers.map((p, i) => {
-            const isActive = players[currentPlayerIndex]?.id === p.id;
+          {/* Table felt circle */}
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            width: 210,
+            height: 210,
+            transform: 'translate(-50%, -50%)',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(30,50,110,0.22) 0%, rgba(10,20,55,0.12) 100%)',
+            border: '1px solid rgba(255,255,255,0.07)',
+            boxShadow: '0 0 60px rgba(0,0,0,0.15)',
+          }} />
+
+          {/* Center: draw pile + direction + top card */}
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            zIndex: 2,
+            animation: cardPlayed ? 'topCardFlash 0.4s ease-out' : 'none',
+          }}>
+            {/* Draw pile */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <div
+                onClick={handleDraw}
+                style={{
+                  width: 68,
+                  height: 102,
+                  background: 'linear-gradient(135deg, #ff4757 25%, #ff6348 100%)',
+                  borderRadius: 9,
+                  border: '2px solid rgba(255,255,255,0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: isMyTurn ? 'pointer' : 'default',
+                  boxShadow: isMyTurn
+                    ? isYourTurnNew ? '0 0 40px rgba(255,71,87,0.8)' : '0 0 28px rgba(255,71,87,0.5)'
+                    : '0 8px 20px rgba(0,0,0,0.3)',
+                  transform: animDrawn ? 'scale(0.92)' : 'translateY(0)',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
+                  opacity: isMyTurn ? 1 : 0.6,
+                  animation: drawnCard ? 'drawShake 0.5s ease-in-out' : 'none',
+                }}
+                onMouseEnter={e => { if (isMyTurn) { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 0 36px rgba(255,71,87,0.6)'; } }}
+                onMouseLeave={e => { if (isMyTurn) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 0 28px rgba(255,71,87,0.5)'; } }}
+              >
+                <span style={{ fontSize: 28, opacity: 0.9 }}>🂠</span>
+              </div>
+              <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', fontFamily: "'Poppins',sans-serif", fontWeight: 600 }}>
+                {deckCount} LEFT
+              </span>
+            </div>
+
+            {/* Direction + color */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontSize: 22, opacity: 0.65, lineHeight: 1 }}>
+                {gameState.direction === 1 ? '↻' : '↺'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.3)', borderRadius: 20, padding: '3px 9px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: COLOR_MAP[currentColor] || '#fff', boxShadow: `0 0 8px ${COLOR_MAP[currentColor] || '#fff'}` }} />
+                <span style={{ fontSize: 9, fontFamily: "'Poppins',sans-serif", color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>
+                  {currentColor?.toUpperCase()}
+                </span>
+              </div>
+            </div>
+
+            {/* Top card */}
+            {topCard && (
+              <UnoCard
+                card={{
+                  ...topCard,
+                  color: topCard.color === 'wild' ? topCard.chosenColor || 'wild' : topCard.color,
+                  chosenColor: topCard.chosenColor,
+                }}
+              />
+            )}
+          </div>
+
+          {/* Players around the table */}
+          {players.map((p, i) => {
+            const N = players.length;
+            const myIdx = players.findIndex(pl => pl.id === playerId);
+            const offset = (i - myIdx + N) % N;
+            const angle = (Math.PI / 2) + (offset * 2 * Math.PI / N);
+            const xPct = 50 + 40 * Math.cos(angle);
+            const yPct = 50 + 36 * Math.sin(angle);
+            const isCurrent = players[currentPlayerIndex]?.id === p.id;
+            const isNext = players[nextPlayerIndex]?.id === p.id && !isCurrent;
+            const isMe = p.id === playerId;
+
             return (
               <div
                 key={p.id}
                 style={{
-                  background: isActive
-                    ? 'rgba(255,165,2,0.12)'
-                    : 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${
-                    isActive
-                      ? 'rgba(255,165,2,0.3)'
-                      : 'rgba(255,255,255,0.08)'
-                  }`,
-                  borderRadius: 12,
-                  padding: '12px 16px',
+                  position: 'absolute',
+                  left: `${xPct}%`,
+                  top: `${yPct}%`,
+                  transform: 'translate(-50%, -50%)',
                   display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
-                  gap: 12,
-                  flexShrink: 0,
-                  boxShadow: isActive
-                    ? '0 0 16px rgba(255,165,2,0.2)'
-                    : 'none',
-                  transition: 'all 0.3s ease',
-                  backdropFilter: 'blur(20px)',
+                  gap: 4,
+                  zIndex: 3,
+                  transition: 'all 0.4s ease',
                 }}
               >
-                <div style={{ display: 'flex', gap: 1 }}>
-                  {Array.from({ length: Math.min(p.cardCount, 8) }).map(
-                    (_, j) => (
-                      <div
-                        key={j}
-                        style={{
-                          width: 13,
-                          height: 20,
-                          borderRadius: 2,
-                          background:
-                            'linear-gradient(135deg, rgba(100,100,120,0.8), rgba(60,60,80,0.8))',
-                          border: '0.5px solid rgba(255,255,255,0.1)',
-                          marginLeft: j > 0 ? -4 : 0,
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                        }}
-                      />
-                    )
-                  )}
+                {/* Status badge */}
+                <div style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  fontFamily: "'Poppins',sans-serif",
+                  letterSpacing: 1,
+                  color: isCurrent ? '#ffa502' : isNext ? 'rgba(120,200,255,0.9)' : 'transparent',
+                  background: isCurrent ? 'rgba(255,165,2,0.18)' : isNext ? 'rgba(100,180,255,0.12)' : 'transparent',
+                  padding: '2px 7px',
+                  borderRadius: 4,
+                  border: isCurrent ? '1px solid rgba(255,165,2,0.35)' : isNext ? '1px solid rgba(100,180,255,0.25)' : '1px solid transparent',
+                  minWidth: 66,
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                  transition: 'all 0.4s ease',
+                }}>
+                  {isCurrent ? '▶ PLAYING' : isNext ? '◎ NEXT' : '\u00A0'}
                 </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 700,
-                      fontFamily: "'Poppins',sans-serif",
-                    }}
-                  >
-                    {p.name}
+
+                {/* Avatar */}
+                <div style={{
+                  width: isCurrent ? 52 : 40,
+                  height: isCurrent ? 52 : 40,
+                  borderRadius: '50%',
+                  background: COLOR_DOT[i % COLOR_DOT.length],
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: isCurrent ? 19 : 14,
+                  fontWeight: 700,
+                  color: '#fff',
+                  border: isCurrent
+                    ? '3px solid #ffa502'
+                    : isNext
+                      ? '2px solid rgba(120,200,255,0.75)'
+                      : '2px solid rgba(255,255,255,0.12)',
+                  boxShadow: isCurrent
+                    ? '0 0 0 5px rgba(255,165,2,0.18), 0 0 30px rgba(255,165,2,0.75)'
+                    : isNext
+                      ? '0 0 0 3px rgba(100,180,255,0.15), 0 0 18px rgba(100,180,255,0.55)'
+                      : '0 4px 10px rgba(0,0,0,0.4)',
+                  transition: 'all 0.4s ease',
+                  animation: isCurrent ? 'playerPulse 1.8s ease-in-out infinite' : 'none',
+                  flexShrink: 0,
+                }}>
+                  {p.name[0].toUpperCase()}
+                </div>
+
+                {/* Name + card count */}
+                <div style={{
+                  background: isCurrent
+                    ? 'rgba(255,165,2,0.15)'
+                    : isNext
+                      ? 'rgba(100,180,255,0.1)'
+                      : 'rgba(0,0,0,0.55)',
+                  border: `1px solid ${isCurrent ? 'rgba(255,165,2,0.4)' : isNext ? 'rgba(100,180,255,0.25)' : 'rgba(255,255,255,0.1)'}`,
+                  borderRadius: 8,
+                  padding: '3px 10px',
+                  textAlign: 'center',
+                  backdropFilter: 'blur(10px)',
+                  transition: 'all 0.4s ease',
+                }}>
+                  <div style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    fontFamily: "'Poppins',sans-serif",
+                    color: isCurrent ? '#ffa502' : isNext ? 'rgba(160,220,255,0.95)' : 'rgba(255,255,255,0.85)',
+                    whiteSpace: 'nowrap',
+                    maxWidth: 90,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}>
+                    {p.name}{isMe ? ' (you)' : ''}
                   </div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: 'rgba(255,255,255,0.45)',
-                      fontFamily: "'Poppins',sans-serif",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {p.cardCount} card{p.cardCount !== 1 ? 's' : ''}{' '}
-                    {p.saidUno && (
-                      <span style={{ color: '#ff4757', fontWeight: 700 }}>
-                        🔴 UNO!
-                      </span>
-                    )}
+                  <div style={{
+                    fontSize: 9,
+                    fontFamily: "'Poppins',sans-serif",
+                    fontWeight: 500,
+                    color: isCurrent ? 'rgba(255,165,2,0.8)' : 'rgba(255,255,255,0.4)',
+                    marginTop: 1,
+                  }}>
+                    {p.cardCount} card{p.cardCount !== 1 ? 's' : ''}
+                    {p.saidUno && <span style={{ color: '#ff4757', fontWeight: 700 }}> UNO!</span>}
                   </div>
                 </div>
               </div>
             );
           })}
-        </div>
-
-        {/* Center play area */}
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 48,
-          padding: '16px 24px',
-          minHeight: 0,
-        }}>
-          {/* Draw pile */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 12,
-            }}
-          >
-            <div
-              onClick={handleDraw}
-              style={{
-                width: 80,
-                height: 120,
-                background: 'linear-gradient(135deg, #ff4757 25%, #ff6348 100%)',
-                borderRadius: 10,
-                border: '2px solid rgba(255,255,255,0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: isMyTurn ? 'pointer' : 'default',
-                boxShadow: isMyTurn
-                  ? isYourTurnNew ? '0 0 40px rgba(255,71,87,0.8)' : '0 0 28px rgba(255,71,87,0.5)'
-                  : '0 8px 20px rgba(0,0,0,0.3)',
-                transform: animDrawn ? 'scale(0.92)' : 'translateY(0)',
-                transition: 'transform 0.15s, box-shadow 0.15s',
-                flexShrink: 0,
-                opacity: isMyTurn ? 1 : 0.6,
-                animation: drawnCard ? 'drawShake 0.5s ease-in-out' : 'none',
-              }}
-              onMouseEnter={e => {
-                if (isMyTurn) {
-                  e.currentTarget.style.transform = 'translateY(-4px)';
-                  e.currentTarget.style.boxShadow =
-                    '0 0 36px rgba(255,71,87,0.6)';
-                }
-              }}
-              onMouseLeave={e => {
-                if (isMyTurn) {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow =
-                    '0 0 28px rgba(255,71,87,0.5)';
-                }
-              }}
-            >
-              <span style={{ fontSize: 32, opacity: 0.9 }}>🂠</span>
-            </div>
-            <span
-              style={{
-                fontSize: 11,
-                color: 'rgba(255,255,255,0.45)',
-                fontFamily: "'Poppins',sans-serif",
-                fontWeight: 600,
-                letterSpacing: 0.5,
-              }}
-            >
-              {deckCount} LEFT
-            </span>
-          </div>
-
-          {/* Top card */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 12,
-              animation: cardPlayed ? 'topCardFlash 0.4s ease-out' : 'none',
-            }}
-          >
-            {topCard && (
-              <UnoCard
-                card={{
-                  ...topCard,
-                  color:
-                    topCard.color === 'wild'
-                      ? topCard.chosenColor || 'wild'
-                      : topCard.color,
-                  chosenColor: topCard.chosenColor,
-                }}
-              />
-            )}
-            {/* Current color indicator */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                background: 'rgba(0,0,0,0.2)',
-                borderRadius: 20,
-                padding: '6px 14px',
-                border: '1px solid rgba(255,255,255,0.1)',
-              }}
-            >
-              <div
-                style={{
-                  width: 11,
-                  height: 11,
-                  borderRadius: '50%',
-                  background: COLOR_MAP[currentColor] || '#fff',
-                  boxShadow: `0 0 10px ${COLOR_MAP[currentColor] || '#fff'}`,
-                }}
-              />
-              <span
-                style={{
-                  fontSize: 10,
-                  fontFamily: "'Poppins',sans-serif",
-                  color: 'rgba(255,255,255,0.6)',
-                  fontWeight: 600,
-                  letterSpacing: 0.5,
-                }}
-              >
-                {currentColor?.toUpperCase()}
-              </span>
-            </div>
-          </div>
         </div>
 
         {/* Log */}
@@ -861,6 +856,10 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
         @keyframes pulse-border {
           0%, 100% { box-shadow: 0 0 20px rgba(46,213,115,0.6); }
           50% { box-shadow: 0 0 30px rgba(46,213,115,1); }
+        }
+        @keyframes playerPulse {
+          0%, 100% { box-shadow: 0 0 0 5px rgba(255,165,2,0.18), 0 0 30px rgba(255,165,2,0.75); }
+          50% { box-shadow: 0 0 0 8px rgba(255,165,2,0.28), 0 0 48px rgba(255,165,2,1); }
         }
       `}</style>
     </div>
