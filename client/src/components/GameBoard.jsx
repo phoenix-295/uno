@@ -703,8 +703,8 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.8)',
-            backdropFilter: 'blur(8px)',
+            background: 'rgba(0,0,0,0.45)',
+            backdropFilter: 'blur(3px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -714,7 +714,7 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
         >
           <div
             style={{
-              background: 'rgba(20,20,40,0.95)',
+              background: 'rgba(20,20,40,0.75)',
               border: '1px solid rgba(255,255,255,0.12)',
               borderRadius: 24,
               padding: 40,

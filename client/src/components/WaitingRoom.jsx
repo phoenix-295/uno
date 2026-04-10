@@ -12,7 +12,18 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
   const allReady = players.length >= 2 && players.every(p => p.ready);
 
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(roomId);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(roomId);
+    } else {
+      const el = document.createElement('textarea');
+      el.value = roomId;
+      el.style.position = 'fixed';
+      el.style.opacity = '0';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -229,6 +240,36 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
                   <span style={{ opacity: 0.6 }}>Waiting...</span>
                 )}
               </div>
+
+              {isHost && p.id !== playerId && (
+                <button
+                  onClick={() => socket.emit('player:kick', { playerId: p.id })}
+                  title={`Kick ${p.name}`}
+                  style={{
+                    background: 'rgba(255,71,87,0.12)',
+                    border: '1px solid rgba(255,71,87,0.3)',
+                    color: '#ff4757',
+                    borderRadius: 8,
+                    padding: '6px 10px',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    fontFamily: "'Poppins',sans-serif",
+                    transition: 'all 0.2s ease',
+                    lineHeight: 1,
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'rgba(255,71,87,0.25)';
+                    e.currentTarget.style.borderColor = 'rgba(255,71,87,0.6)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'rgba(255,71,87,0.12)';
+                    e.currentTarget.style.borderColor = 'rgba(255,71,87,0.3)';
+                  }}
+                >
+                  ✕
+                </button>
+              )}
             </div>
           ))}
         </div>

@@ -173,6 +173,26 @@ io.on('connection', (socket) => {
     if (!result.error) broadcastRoom(roomId);
   });
 
+  socket.on('player:kick', ({ playerId }) => {
+    const { roomId } = socket.data;
+    const room = rooms[roomId];
+    if (!room || room.host !== socket.id) return;
+    if (room.game && room.game.status === 'playing') {
+      socket.emit('room:error', 'Cannot kick players during a game');
+      return;
+    }
+    const target = room.players.find(p => p.id === playerId);
+    if (!target) return;
+    const targetSocket = io.sockets.sockets.get(target.socketId);
+    if (targetSocket) {
+      targetSocket.emit('kicked', 'You were kicked by the host');
+      targetSocket.leave(roomId);
+    }
+    room.players = room.players.filter(p => p.id !== playerId);
+    broadcastRoom(roomId);
+    console.log(`Player ${target.name} was kicked from room ${roomId}`);
+  });
+
   socket.on('game:restart', () => {
     const { roomId } = socket.data;
     const room = rooms[roomId];

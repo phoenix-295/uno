@@ -40,6 +40,14 @@ export default function App() {
       setTimeout(() => setError(''), 3000);
     });
 
+    s.on('kicked', (msg) => {
+      setError(msg);
+      setSession(null);
+      setLobbyState(null);
+      setGameState(null);
+      setScreen('lobby');
+    });
+
     return () => s.disconnect();
   }, []);
 
