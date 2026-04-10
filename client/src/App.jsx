@@ -24,7 +24,7 @@ export default function App() {
       setLobbyState(state);
       if (state.gameStarted) {
         setScreen('game');
-      } else {
+      } else if (!state.gameFinished) {
         setScreen(prev => prev === 'game' ? 'waiting' : prev);
         if (screen === 'game') setGameState(null);
       }

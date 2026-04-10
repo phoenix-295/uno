@@ -37,11 +37,13 @@ function getRoomSafeState(room, requestingPlayerId = null) {
 function broadcastRoom(roomId) {
   const room = rooms[roomId];
   if (!room) return;
-  // Send each player their own hand
-  for (const player of room.players) {
-    const socket = io.sockets.sockets.get(player.socketId);
-    if (socket) {
-      socket.emit('game:state', getRoomSafeState(room, player.id));
+  // Send each player their own hand (only when a game is active)
+  if (room.game) {
+    for (const player of room.players) {
+      const socket = io.sockets.sockets.get(player.socketId);
+      if (socket) {
+        socket.emit('game:state', getRoomSafeState(room, player.id));
+      }
     }
   }
   // Also send lobby state
@@ -50,6 +52,7 @@ function broadcastRoom(roomId) {
     players: room.players.map(p => ({ id: p.id, name: p.name, ready: p.ready })),
     host: room.host,
     gameStarted: !!room.game && room.game.status !== 'finished',
+    gameFinished: !!room.game && room.game.status === 'finished',
   });
 }
 
