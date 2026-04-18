@@ -844,9 +844,9 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
           100% { transform: scale(1); }
         }
         @keyframes topCardFlash {
-          0% { transform: scale(1) rotate(0deg); }
-          50% { transform: scale(1.1) rotate(5deg); }
-          100% { transform: scale(1) rotate(0deg); }
+          0% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+          50% { transform: translate(-50%, -50%) scale(1.1) rotate(5deg); }
+          100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
         }
         @keyframes cardGlow {
           0% { filter: drop-shadow(0 0 0px transparent); }
