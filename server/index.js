@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const path = require('path');
 const { createGame, playCard, drawCard, callUno } = require('./gameEngine');
 
 const app = express();
@@ -219,5 +220,11 @@ io.on('connection', (socket) => {
 
 app.get('/health', (_, res) => res.json({ status: 'ok', rooms: Object.keys(rooms).length }));
 
-const PORT = 3001;
+const clientDist = path.join(__dirname, '../client/dist');
+app.use(express.static(clientDist));
+app.get('/{*path}', (req, res) => {
+  res.sendFile(path.join(clientDist, 'index.html'));
+});
+
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => console.log(`🎮 Uno server running on http://0.0.0.0:${PORT}`));

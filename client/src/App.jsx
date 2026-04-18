@@ -4,7 +4,7 @@ import Lobby from './components/Lobby';
 import WaitingRoom from './components/WaitingRoom';
 import GameBoard from './components/GameBoard';
 
-const SOCKET_URL = `http://${window.location.hostname}:3001`;
+const SOCKET_URL = import.meta.env.PROD ? window.location.origin : `http://${window.location.hostname}:3001`;
 
 export default function App() {
   const socketRef = useRef(null);
