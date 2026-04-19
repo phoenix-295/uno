@@ -33,11 +33,60 @@ function canPlay(card, topCard, currentColor) {
   return false;
 }
 
+function sortCards(cards) {
+  return cards.sort((a, b) => {
+    // Wild cards always go last
+    const aIsWild = WILD_CARDS.includes(a.value);
+    const bIsWild = WILD_CARDS.includes(b.value);
+    
+    if (aIsWild && !bIsWild) return 1;
+    if (!aIsWild && bIsWild) return -1;
+    if (aIsWild && bIsWild) return 0;
+    
+    // Sort by color first
+    const aColorIndex = COLORS.indexOf(a.color);
+    const bColorIndex = COLORS.indexOf(b.color);
+    if (aColorIndex !== bColorIndex) {
+      return aColorIndex - bColorIndex;
+    }
+    
+    // Then sort by value (numbers first, then special cards)
+    const aValue = a.value;
+    const bValue = b.value;
+    
+    // Check if values are numbers
+    const aIsNumber = /^\d+$/.test(aValue);
+    const bIsNumber = /^\d+$/.test(bValue);
+    
+    if (aIsNumber && bIsNumber) {
+      return parseInt(aValue) - parseInt(bValue);
+    }
+    
+    if (aIsNumber && !bIsNumber) return -1;
+    if (!aIsNumber && bIsNumber) return 1;
+    
+    // Sort special cards: skip, reverse, draw2
+    const specialOrder = ['skip', 'reverse', 'draw2'];
+    const aSpecialIndex = specialOrder.indexOf(aValue);
+    const bSpecialIndex = specialOrder.indexOf(bValue);
+    
+    if (aSpecialIndex !== -1 && bSpecialIndex !== -1) {
+      return aSpecialIndex - bSpecialIndex;
+    }
+    
+    if (aSpecialIndex !== -1 && bSpecialIndex === -1) return -1;
+    if (aSpecialIndex === -1 && bSpecialIndex !== -1) return 1;
+    
+    return 0;
+  });
+}
+
 function createGame(roomId, players) {
   const deck = createDeck();
   const hands = {};
   for (const p of players) {
-    hands[p.id] = deck.splice(0, 7);
+    const hand = deck.splice(0, 7);
+    hands[p.id] = sortCards(hand);
   }
   // Find first non-wild, non-skip card for discard
   let firstCard;
@@ -93,6 +142,8 @@ function drawCards(game, playerId, count) {
     drawn.push(game.deck.shift());
   }
   game.hands[playerId].push(...drawn);
+  // Sort the hand after adding new cards
+  game.hands[playerId] = sortCards(game.hands[playerId]);
   const player = game.players.find(p => p.id === playerId);
   if (player) player.cardCount = game.hands[playerId].length;
   return drawn;
@@ -196,4 +247,4 @@ function callUno(game, playerId) {
   return { success: true, game };
 }
 
-module.exports = { createGame, playCard, drawCard, callUno, canPlay, nextPlayerIndex, drawCards };
+module.exports = { createGame, playCard, drawCard, callUno, canPlay, nextPlayerIndex, drawCards, sortCards };

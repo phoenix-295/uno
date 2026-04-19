@@ -3,7 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
-const { createGame, playCard, drawCard, callUno, nextPlayerIndex, drawCards } = require('./gameEngine');
+const { createGame, playCard, drawCard, callUno, nextPlayerIndex, drawCards, sortCards } = require('./gameEngine');
 
 const TURN_TIME_LIMIT = 10;
 const STALE_CONNECTION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
@@ -324,6 +324,16 @@ io.on('connection', (socket) => {
     if (!room || room.host !== socket.id) return;
     room.game = null;
     room.players.forEach(p => p.ready = false);
+    broadcastRoom(roomId);
+  });
+
+  socket.on('cards:sort', () => {
+    const { roomId, playerId } = socket.data;
+    const room = rooms[roomId];
+    if (!room || !room.game) return;
+    
+    // Sort the player's hand
+    room.game.hands[playerId] = sortCards(room.game.hands[playerId]);
     broadcastRoom(roomId);
   });
 

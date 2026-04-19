@@ -666,6 +666,34 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
               YOUR HAND ({hand?.length || 0})
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => socket.emit('cards:sort')}
+                style={{
+                  padding: '8px 20px',
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: 20,
+                  color: '#fff',
+                  fontFamily: "'Poppins', sans-serif",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  letterSpacing: 0.5,
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                SORT
+              </button>
               {hand?.length === 1 && (
                 <button
                   onClick={handleUno}
