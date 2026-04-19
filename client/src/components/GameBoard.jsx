@@ -22,7 +22,7 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
 
   if (!gameState) return null;
 
-  const { hand, topCard, currentColor, players, currentPlayerIndex, status, winner, log, deckCount } = gameState;
+  const { hand, topCard, currentColor, players, currentPlayerIndex, status, winner, log, deckCount, timeRemaining } = gameState;
   const me = players.find(p => p.id === playerId);
   const isMyTurn = me && players[currentPlayerIndex]?.id === playerId;
 
@@ -255,17 +255,17 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
       )}
 
       {/* Top bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '16px 24px',
-        background: 'rgba(0,0,0,0.2)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        flexShrink: 0,
-        backdropFilter: 'blur(10px)',
-        animation: 'slideDown 0.5s ease-out',
-      }}>
+<div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '16px 24px',
+          background: 'rgba(0,0,0,0.2)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          flexShrink: 0,
+          backdropFilter: 'blur(10px)',
+          animation: 'slideDown 0.5s ease-out',
+        }}>
         <div style={{
           fontSize: 10,
           letterSpacing: 2,
@@ -311,6 +311,18 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
           }}>
             {isMyTurn ? '⚡ YOUR TURN' : `${currentPlayerObj?.name}'s turn`}
           </span>
+          {isMyTurn && timeRemaining !== null && (
+            <span style={{
+              marginLeft: 8,
+              fontSize: 11,
+              fontWeight: 700,
+              fontFamily: "'Space Mono', monospace",
+              color: timeRemaining <= 3 ? '#ff4757' : timeRemaining <= 5 ? '#ffa502' : '#2ed573',
+              animation: timeRemaining <= 3 ? 'pulse 0.5s ease-in-out infinite' : 'none',
+            }}>
+              {timeRemaining}s
+            </span>
+          )}
         </div>
 
         <div style={{
@@ -464,33 +476,77 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
                   {isCurrent ? '▶ PLAYING' : isNext ? '◎ NEXT' : '\u00A0'}
                 </div>
 
-                {/* Avatar */}
+                {/* Avatar with countdown circle */}
                 <div style={{
+                  position: 'relative',
                   width: isCurrent ? 52 : 40,
                   height: isCurrent ? 52 : 40,
-                  borderRadius: '50%',
-                  background: COLOR_DOT[i % COLOR_DOT.length],
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: isCurrent ? 19 : 14,
-                  fontWeight: 700,
-                  color: '#fff',
-                  border: isCurrent
-                    ? '3px solid #ffa502'
-                    : isNext
-                      ? '2px solid rgba(120,200,255,0.75)'
-                      : '2px solid rgba(255,255,255,0.12)',
-                  boxShadow: isCurrent
-                    ? '0 0 0 5px rgba(255,165,2,0.18), 0 0 30px rgba(255,165,2,0.75)'
-                    : isNext
-                      ? '0 0 0 3px rgba(100,180,255,0.15), 0 0 18px rgba(100,180,255,0.55)'
-                      : '0 4px 10px rgba(0,0,0,0.4)',
-                  transition: 'all 0.4s ease',
-                  animation: isCurrent ? 'playerPulse 1.8s ease-in-out infinite' : 'none',
                   flexShrink: 0,
                 }}>
-                  {p.name[0].toUpperCase()}
+                  {/* Countdown circle for current player */}
+                  {isCurrent && timeRemaining !== null && (
+                    <svg
+                      style={{
+                        position: 'absolute',
+                        top: -4,
+                        left: -4,
+                        width: isCurrent ? 60 : 48,
+                        height: isCurrent ? 60 : 48,
+                        transform: 'rotate(-90deg)',
+                        zIndex: 1,
+                      }}
+                    >
+                      <circle
+                        cx={isCurrent ? 30 : 24}
+                        cy={isCurrent ? 30 : 24}
+                        r={isCurrent ? 28 : 22}
+                        stroke="rgba(255,255,255,0.1)"
+                        strokeWidth="3"
+                        fill="none"
+                      />
+                      <circle
+                        cx={isCurrent ? 30 : 24}
+                        cy={isCurrent ? 30 : 24}
+                        r={isCurrent ? 28 : 22}
+                        stroke={timeRemaining <= 3 ? '#ff4757' : timeRemaining <= 5 ? '#ffa502' : '#2ed573'}
+                        strokeWidth="3"
+                        fill="none"
+                        strokeDasharray={`${2 * Math.PI * (isCurrent ? 28 : 22)}`}
+                        strokeDashoffset={`${2 * Math.PI * (isCurrent ? 28 : 22) * (1 - timeRemaining / 10)}`}
+                        style={{
+                          transition: 'stroke-dashoffset 0.3s ease, stroke 0.3s ease',
+                        }}
+                      />
+                    </svg>
+                  )}
+                  <div style={{
+                    width: isCurrent ? 52 : 40,
+                    height: isCurrent ? 52 : 40,
+                    borderRadius: '50%',
+                    background: COLOR_DOT[i % COLOR_DOT.length],
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: isCurrent ? 19 : 14,
+                    fontWeight: 700,
+                    color: '#fff',
+                    border: isCurrent
+                      ? '3px solid #ffa502'
+                      : isNext
+                        ? '2px solid rgba(120,200,255,0.75)'
+                        : '2px solid rgba(255,255,255,0.12)',
+                    boxShadow: isCurrent
+                      ? '0 0 0 5px rgba(255,165,2,0.18), 0 0 30px rgba(255,165,2,0.75)'
+                      : isNext
+                        ? '0 0 0 3px rgba(100,180,255,0.15), 0 0 18px rgba(100,180,255,0.55)'
+                        : '0 4px 10px rgba(0,0,0,0.4)',
+                    transition: 'all 0.4s ease',
+                    animation: isCurrent ? 'playerPulse 1.8s ease-in-out infinite' : 'none',
+                    position: 'relative',
+                    zIndex: 2,
+                  }}>
+                    {p.name[0].toUpperCase()}
+                  </div>
                 </div>
 
                 {/* Name + card count */}

@@ -20,6 +20,13 @@ export default function App() {
     socketRef.current = s;
     setSocket(s);
 
+    // Send heartbeat every 30 seconds
+    const heartbeatInterval = setInterval(() => {
+      if (s.connected) {
+        s.emit('heartbeat');
+      }
+    }, 30000);
+
     s.on('lobby:state', (state) => {
       setLobbyState(state);
       if (state.gameStarted) {
@@ -48,7 +55,10 @@ export default function App() {
       setScreen('lobby');
     });
 
-    return () => s.disconnect();
+    return () => {
+      clearInterval(heartbeatInterval);
+      s.disconnect();
+    };
   }, []);
 
   const handleJoined = ({ roomId, playerId, playerName }) => {

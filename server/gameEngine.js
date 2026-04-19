@@ -39,12 +39,12 @@ function createGame(roomId, players) {
   for (const p of players) {
     hands[p.id] = deck.splice(0, 7);
   }
-  // Find first non-wild card for discard
+  // Find first non-wild, non-skip card for discard
   let firstCard;
   let deckCopy = [...deck];
   while (true) {
     firstCard = deckCopy.shift();
-    if (!WILD_CARDS.includes(firstCard.value)) break;
+    if (!WILD_CARDS.includes(firstCard.value) && firstCard.value !== 'skip') break;
     deckCopy.push(firstCard);
   }
   const discardPile = [firstCard];
@@ -63,6 +63,7 @@ function createGame(roomId, players) {
     winner: null,
     drawPending: 0,
     mustDraw: false,
+    turnTimerStart: Date.now(),
     log: [`Game started! First card: ${firstCard.color} ${firstCard.value}`],
   };
 }
@@ -158,6 +159,7 @@ function playCard(game, playerId, cardId, chosenColor = null) {
   }
 
   game.currentPlayerIndex = nextPlayerIndex(game, skipNext);
+  game.turnTimerStart = Date.now();
   return { success: true, game };
 }
 
@@ -178,6 +180,7 @@ function drawCard(game, playerId) {
   if (!canPlayDrawn) {
     // Card not playable, advance turn immediately
     game.currentPlayerIndex = nextPlayerIndex(game);
+    game.turnTimerStart = Date.now();
   }
   // If playable, turn stays with current player to let them play it
 
@@ -193,4 +196,4 @@ function callUno(game, playerId) {
   return { success: true, game };
 }
 
-module.exports = { createGame, playCard, drawCard, callUno, canPlay };
+module.exports = { createGame, playCard, drawCard, callUno, canPlay, nextPlayerIndex, drawCards };
