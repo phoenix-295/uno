@@ -8,12 +8,35 @@ const { createGame, playCard, drawCard, callUno, nextPlayerIndex, drawCards } = 
 const TURN_TIME_LIMIT = 10;
 const STALE_CONNECTION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 const app = express();
-app.use(cors());
+// CORS configuration from environment
+const getCorsOrigins = () => {
+  const origins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [];
+  
+  // Add development origins if not in production
+  if (process.env.NODE_ENV !== 'production') {
+    origins.push('http://localhost:5173', 'http://localhost:3001', 'http://127.0.0.1:5173', 'http://127.0.0.1:3001');
+  }
+  
+  // Add Render domains if specified
+  if (process.env.ALLOW_RENDER_DOMAINS === 'true') {
+    origins.push('*.onrender.com');
+  }
+  
+  return origins.filter(Boolean);
+};
+
+app.use(cors({
+  origin: getCorsOrigins(),
+  methods: ['GET', 'POST']
+}));
 app.use(express.json());
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] }
+  cors: {
+    origin: getCorsOrigins(),
+    methods: ['GET', 'POST']
+  }
 });
 
 // rooms: { [roomId]: { players: [], game: null, host: socketId, turnTimer: null } }
