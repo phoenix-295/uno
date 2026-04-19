@@ -113,6 +113,8 @@ function createGame(roomId, players) {
     drawPending: 0,
     mustDraw: false,
     turnTimerStart: Date.now(),
+    createdAt: Date.now(),
+    lastActivity: Date.now(),
     log: [`Game started! First card: ${firstCard.color} ${firstCard.value}`],
   };
 }
@@ -211,6 +213,7 @@ function playCard(game, playerId, cardId, chosenColor = null) {
 
   game.currentPlayerIndex = nextPlayerIndex(game, skipNext);
   game.turnTimerStart = Date.now();
+  game.lastActivity = Date.now();
   return { success: true, game };
 }
 
@@ -233,6 +236,7 @@ function drawCard(game, playerId) {
     game.currentPlayerIndex = nextPlayerIndex(game);
     game.turnTimerStart = Date.now();
   }
+  game.lastActivity = Date.now();
   // If playable, turn stays with current player to let them play it
 
   return { success: true, game, drawn, canPlayDrawn };

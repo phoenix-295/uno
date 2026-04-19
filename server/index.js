@@ -5,10 +5,12 @@ const cors = require('cors');
 const path = require('path');
 const { createGame, playCard, drawCard, callUno, nextPlayerIndex, drawCards, sortCards } = require('./gameEngine');
 
-const TURN_TIME_LIMIT = 10;
-const STALE_CONNECTION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+// Game constants - hardcoded for consistent gameplay
+const TURN_TIME_LIMIT = 10; // 10 seconds per turn
+const STALE_CONNECTION_TIMEOUT = 5 * 60 * 1000; // 5 minutes for stale connections
+const ABANDONED_GAME_TIMEOUT = 30 * 60 * 1000; // 30 minutes for completely abandoned games
 const app = express();
-// CORS configuration from environment
+// CORS configuration from environment variables only
 const getCorsOrigins = () => {
   const origins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [];
   
@@ -36,7 +38,10 @@ const io = new Server(server, {
   cors: {
     origin: getCorsOrigins(),
     methods: ['GET', 'POST']
-  }
+  },
+  transports: ['websocket', 'polling'],
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
 // rooms: { [roomId]: { players: [], game: null, host: socketId, turnTimer: null } }
@@ -46,21 +51,40 @@ const rooms = {};
 function cleanupStaleConnections() {
   const now = Date.now();
   for (const [roomId, room] of Object.entries(rooms)) {
-    if (!room.game || room.game.status === 'finished') {
-      // Clean up inactive rooms without games
-      const hasActivePlayers = room.players.some(p => {
-        const socket = io.sockets.sockets.get(p.socketId);
-        return socket && socket.connected;
-      });
+    // Check for any active players in the room
+    const hasActivePlayers = room.players.some(p => {
+      const socket = io.sockets.sockets.get(p.socketId);
+      return socket && socket.connected;
+    });
+    
+    // Check for abandoned games (games with no activity for too long)
+    if (room.game && !hasActivePlayers) {
+      const gameAge = room.game.createdAt ? now - room.game.createdAt : Infinity;
+      const lastActivity = room.game.lastActivity || room.game.createdAt || 0;
+      const timeSinceActivity = now - lastActivity;
       
-      if (!hasActivePlayers) {
-        console.log(`[CLEANUP] Removing inactive room ${roomId}`);
+      if (timeSinceActivity > ABANDONED_GAME_TIMEOUT) {
+        console.log(`[CLEANUP] Removing abandoned game in room ${roomId} (inactive for ${Math.round(timeSinceActivity / 60000)} minutes)`);
         delete rooms[roomId];
         continue;
       }
     }
     
-    // Clean up stale players
+    // Clean up rooms with no active players (regardless of game status)
+    if (!hasActivePlayers) {
+      // If all players are stale, remove the room entirely
+      const allPlayersStale = room.players.every(player => {
+        return !player.lastSeen || (now - player.lastSeen) > STALE_CONNECTION_TIMEOUT;
+      });
+      
+      if (allPlayersStale) {
+        console.log(`[CLEANUP] Removing abandoned room ${roomId} (game status: ${room.game?.status || 'no game'})`);
+        delete rooms[roomId];
+        continue;
+      }
+    }
+    
+    // Clean up stale players if there are still active players
     const originalLength = room.players.length;
     room.players = room.players.filter(player => {
       const socket = io.sockets.sockets.get(player.socketId);
@@ -82,6 +106,13 @@ function cleanupStaleConnections() {
       
       return true;
     });
+    
+    // If room is empty after cleanup, remove it
+    if (room.players.length === 0) {
+      console.log(`[CLEANUP] Removing empty room ${roomId}`);
+      delete rooms[roomId];
+      continue;
+    }
     
     if (room.players.length !== originalLength) {
       broadcastRoom(roomId);
@@ -107,8 +138,8 @@ function startTurnTimer(roomId) {
     
     const elapsed = (Date.now() - game.turnTimerStart) / 1000;
     
-    // Always broadcast timer update to show countdown
-    broadcastRoom(roomId);
+    // Broadcast timer updates more frequently for better real-time feel
+    broadcastTimerUpdate(roomId);
     
     if (elapsed >= TURN_TIME_LIMIT) {
       const currentPlayer = game.players[game.currentPlayerIndex];
@@ -122,9 +153,10 @@ function startTurnTimer(roomId) {
       game.currentPlayerIndex = nextPlayerIndex(game);
       game.turnTimerStart = Date.now();
       
+      // Immediate full broadcast for turn change
       broadcastRoom(roomId);
     }
-  }, 1000);
+  }, 200); // Update every 200ms for smoother timer
 }
 
 function getRoomSafeState(room, requestingPlayerId = null, timeRemaining = null) {
@@ -144,6 +176,33 @@ function getRoomSafeState(room, requestingPlayerId = null, timeRemaining = null)
     hand: requestingPlayerId ? game.hands[requestingPlayerId] : [],
     timeRemaining,
   };
+}
+
+function broadcastTimerUpdate(roomId) {
+  const room = rooms[roomId];
+  if (!room || !room.game) return;
+  
+  // Only send timer and critical game state - no hands, no logs
+  let timeRemaining = null;
+  if (room.game.status === 'playing' && room.game.turnTimerStart) {
+    const elapsed = (Date.now() - room.game.turnTimerStart) / 1000;
+    timeRemaining = Math.max(0, Math.ceil(TURN_TIME_LIMIT - elapsed));
+  }
+  
+  const timerState = {
+    currentPlayerIndex: room.game.currentPlayerIndex,
+    timeRemaining,
+    topCard: room.game.discardPile[room.game.discardPile.length - 1],
+    currentColor: room.game.currentColor,
+    status: room.game.status
+  };
+  
+  for (const player of room.players) {
+    const socket = io.sockets.sockets.get(player.socketId);
+    if (socket) {
+      socket.emit('game:timer', timerState);
+    }
+  }
 }
 
 function broadcastRoom(roomId) {
@@ -262,7 +321,12 @@ io.on('connection', (socket) => {
       return;
     }
     room.game.turnTimerStart = Date.now();
+    
+    // Immediate broadcast for card play - critical for real-time feel
     broadcastRoom(roomId);
+    
+    // Also send immediate timer update
+    broadcastTimerUpdate(roomId);
   });
 
   socket.on('card:draw', () => {
@@ -283,11 +347,15 @@ io.on('connection', (socket) => {
       const drawnCard = result.drawn[0];
       socket.emit('card:drawn', {
         card: drawnCard,
-        message: `🎉 You drew a ${drawnCard.color} ${drawnCard.value}! You can play it now or skip.`
+        message: `You drew a ${drawnCard.color} ${drawnCard.value}! You can play it now or skip.`
       });
     }
 
+    // Immediate broadcast for draw action
     broadcastRoom(roomId);
+    
+    // Also send immediate timer update
+    broadcastTimerUpdate(roomId);
   });
 
   socket.on('uno:call', () => {
@@ -370,6 +438,18 @@ io.on('connection', (socket) => {
 });
 
 app.get('/health', (_, res) => res.json({ status: 'ok', rooms: Object.keys(rooms).length }));
+
+app.get('/admin/cleanup', (_, res) => {
+  const beforeCount = Object.keys(rooms).length;
+  cleanupStaleConnections();
+  const afterCount = Object.keys(rooms).length;
+  res.json({ 
+    status: 'cleanup completed', 
+    roomsRemoved: beforeCount - afterCount,
+    totalRooms: afterCount,
+    rooms: Object.keys(rooms)
+  });
+});
 
 const clientDist = path.join(__dirname, '../client/dist');
 app.use(express.static(clientDist));

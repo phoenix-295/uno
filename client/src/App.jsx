@@ -16,7 +16,11 @@ export default function App() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const s = io(SOCKET_URL);
+    const s = io(SOCKET_URL, {
+  transports: ['websocket', 'polling'],
+  upgrade: true,
+  rememberUpgrade: true
+});
     socketRef.current = s;
     setSocket(s);
 
@@ -40,6 +44,11 @@ export default function App() {
     s.on('game:state', (state) => {
       setGameState(state);
       setScreen('game');
+    });
+
+    s.on('game:timer', (timerState) => {
+      // Only update timer and critical state - don't overwrite full game state
+      setGameState(prev => prev ? { ...prev, ...timerState } : timerState);
     });
 
     s.on('game:error', (msg) => {
