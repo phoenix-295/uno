@@ -4,6 +4,8 @@ export default function Lobby({ socket, onJoined }) {
   const [name, setName] = useState('');
   const [roomId, setRoomId] = useState('');
   const [error, setError] = useState('');
+  const [turnTimeLimit, setTurnTimeLimit] = useState(10);
+  const [stackDraw2, setStackDraw2] = useState(false);
 
   const join = (newRoom = false) => {
     if (!name.trim()) return setError('Enter your name');
@@ -12,7 +14,7 @@ export default function Lobby({ socket, onJoined }) {
       : roomId.trim().toUpperCase();
     if (!room) return setError('Enter a room code');
 
-    socket.emit('room:join', { roomId: room, playerName: name.trim() });
+    socket.emit('room:join', { roomId: room, playerName: name.trim(), turnTimeLimit: newRoom ? turnTimeLimit : undefined, stackDraw2: newRoom ? stackDraw2 : undefined });
     socket.once('room:joined', ({ roomId: rid, playerId }) => {
       onJoined({ roomId: rid, playerId, playerName: name.trim() });
     });
@@ -135,7 +137,7 @@ export default function Lobby({ socket, onJoined }) {
           />
         </div>
 
-        <div style={{ marginBottom: 36 }}>
+        <div style={{ marginBottom: 28 }}>
           <label style={{
             color: 'rgba(255,255,255,0.55)',
             fontSize: 10,
@@ -177,6 +179,120 @@ export default function Lobby({ socket, onJoined }) {
               e.target.style.boxShadow = 'none';
             }}
           />
+        </div>
+
+        <div style={{ marginBottom: 36 }}>
+          <label style={{
+            color: 'rgba(255,255,255,0.55)',
+            fontSize: 10,
+            letterSpacing: 2.5,
+            fontFamily: "'Poppins',sans-serif",
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            display: 'block',
+            marginBottom: 10,
+          }}>Turn Timer <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, letterSpacing: 1 }}>(NEW ROOMS ONLY)</span></label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[10, 15, 20].map(t => (
+              <button
+                key={t}
+                onClick={() => setTurnTimeLimit(t)}
+                type="button"
+                style={{
+                  flex: 1,
+                  padding: '12px 0',
+                  background: turnTimeLimit === t ? 'rgba(255,71,87,0.2)' : 'rgba(255,255,255,0.06)',
+                  border: `1.5px solid ${turnTimeLimit === t ? 'rgba(255,71,87,0.6)' : 'rgba(255,255,255,0.12)'}`,
+                  borderRadius: 10,
+                  color: turnTimeLimit === t ? '#ff6b6b' : 'rgba(255,255,255,0.6)',
+                  fontSize: 14,
+                  fontFamily: "'Space Mono', monospace",
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: turnTimeLimit === t ? '0 0 12px rgba(255,71,87,0.2)' : 'none',
+                }}
+              >
+                {t}s
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 36 }}>
+          <label style={{
+            color: 'rgba(255,255,255,0.55)',
+            fontSize: 10,
+            letterSpacing: 2.5,
+            fontFamily: "'Poppins',sans-serif",
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            display: 'block',
+            marginBottom: 10,
+          }}>House Rules <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, letterSpacing: 1 }}>(NEW ROOMS ONLY)</span></label>
+          <button
+            type="button"
+            onClick={() => setStackDraw2(v => !v)}
+            style={{
+              width: '100%',
+              padding: '12px 18px',
+              background: stackDraw2 ? 'rgba(255,71,87,0.15)' : 'rgba(255,255,255,0.04)',
+              border: `1.5px solid ${stackDraw2 ? 'rgba(255,71,87,0.5)' : 'rgba(255,255,255,0.1)'}`,
+              borderRadius: 10,
+              color: stackDraw2 ? '#ff6b6b' : 'rgba(255,255,255,0.4)',
+              fontSize: 13,
+              fontFamily: "'Poppins', sans-serif",
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              boxShadow: stackDraw2 ? '0 0 12px rgba(255,71,87,0.15)' : 'none',
+            }}
+          >
+            <span>Stack +2 cards</span>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: 1,
+              color: stackDraw2 ? '#ff6b6b' : 'rgba(255,255,255,0.25)',
+            }}>
+              {stackDraw2 ? 'ON' : 'OFF'}
+              <span style={{
+                width: 32,
+                height: 18,
+                borderRadius: 9,
+                background: stackDraw2 ? 'rgba(255,71,87,0.6)' : 'rgba(255,255,255,0.1)',
+                position: 'relative',
+                transition: 'background 0.2s ease',
+                flexShrink: 0,
+              }}>
+                <span style={{
+                  position: 'absolute',
+                  top: 2,
+                  left: stackDraw2 ? 16 : 2,
+                  width: 14,
+                  height: 14,
+                  borderRadius: '50%',
+                  background: stackDraw2 ? '#ff4757' : 'rgba(255,255,255,0.3)',
+                  transition: 'left 0.2s ease, background 0.2s ease',
+                }} />
+              </span>
+            </span>
+          </button>
+          <div style={{
+            marginTop: 6,
+            fontSize: 10,
+            color: 'rgba(255,255,255,0.25)',
+            fontFamily: "'Poppins',sans-serif",
+            paddingLeft: 2,
+          }}>
+            Counter a +2 with another +2 — stacks until someone can't
+          </div>
         </div>
 
         {error && (

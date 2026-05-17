@@ -6,7 +6,7 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
   const [copied, setCopied] = useState(false);
 
   if (!lobbyState) return null;
-  const { players, host } = lobbyState;
+  const { players, host, turnTimeLimit, stackDraw2 } = lobbyState;
   const me = players.find(p => p.id === playerId);
   const isHost = host === socket.id;
   const allReady = players.length >= 2 && players.every(p => p.ready);
@@ -385,6 +385,25 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
           Waiting for at least 2 players...
         </p>
       )}
+
+      <div style={{
+        marginTop: 20,
+        color: 'rgba(255,255,255,0.3)',
+        fontSize: 11,
+        fontFamily: "'Poppins',sans-serif",
+        textAlign: 'center',
+        position: 'relative',
+        zIndex: 1,
+        letterSpacing: 1,
+        display: 'flex',
+        gap: 16,
+        justifyContent: 'center',
+      }}>
+        {turnTimeLimit && <span>⏱ {turnTimeLimit}s TURN TIMER</span>}
+        <span style={{ color: stackDraw2 ? 'rgba(255,107,107,0.6)' : 'rgba(255,255,255,0.2)' }}>
+          {stackDraw2 ? '🔥 STACK +2 ON' : 'STACK +2 OFF'}
+        </span>
+      </div>
 
       <style>{`
         @keyframes float {

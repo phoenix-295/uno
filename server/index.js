@@ -3,7 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
-const { createGame, playCard, drawCard, callUno, nextPlayerIndex, drawCards, sortCards } = require('./gameEngine');
+const { createGame, playCard, drawCard, callUno, catchUno, nextPlayerIndex, drawCards, sortCards } = require('./gameEngine');
 
 // Game constants - hardcoded for consistent gameplay
 const TURN_TIME_LIMIT = 10; // 10 seconds per turn
@@ -137,11 +137,12 @@ function startTurnTimer(roomId) {
     }
     
     const elapsed = (Date.now() - game.turnTimerStart) / 1000;
-    
+    const timeLimit = room.turnTimeLimit || TURN_TIME_LIMIT;
+
     // Broadcast timer updates more frequently for better real-time feel
     broadcastTimerUpdate(roomId);
-    
-    if (elapsed >= TURN_TIME_LIMIT) {
+
+    if (elapsed >= timeLimit) {
       const currentPlayer = game.players[game.currentPlayerIndex];
       game.log.push(`${currentPlayer.name} took too long! Drawing a card and passing turn.`);
       
@@ -175,6 +176,8 @@ function getRoomSafeState(room, requestingPlayerId = null, timeRemaining = null)
     log: game.log.slice(-8),
     hand: requestingPlayerId ? game.hands[requestingPlayerId] : [],
     timeRemaining,
+    drawPending: game.drawPending,
+    stackDraw2: game.stackDraw2,
   };
 }
 
@@ -186,9 +189,9 @@ function broadcastTimerUpdate(roomId) {
   let timeRemaining = null;
   if (room.game.status === 'playing' && room.game.turnTimerStart) {
     const elapsed = (Date.now() - room.game.turnTimerStart) / 1000;
-    timeRemaining = Math.max(0, Math.ceil(TURN_TIME_LIMIT - elapsed));
+    timeRemaining = Math.max(0, Math.ceil((room.turnTimeLimit || TURN_TIME_LIMIT) - elapsed));
   }
-  
+
   const timerState = {
     currentPlayerIndex: room.game.currentPlayerIndex,
     timeRemaining,
@@ -214,7 +217,7 @@ function broadcastRoom(roomId) {
     let timeRemaining = null;
     if (room.game.status === 'playing' && room.game.turnTimerStart) {
       const elapsed = (Date.now() - room.game.turnTimerStart) / 1000;
-      timeRemaining = Math.max(0, Math.ceil(TURN_TIME_LIMIT - elapsed));
+      timeRemaining = Math.max(0, Math.ceil((room.turnTimeLimit || TURN_TIME_LIMIT) - elapsed));
     }
     for (const player of room.players) {
       const socket = io.sockets.sockets.get(player.socketId);
@@ -230,16 +233,27 @@ function broadcastRoom(roomId) {
     host: room.host,
     gameStarted: !!room.game && room.game.status !== 'finished',
     gameFinished: !!room.game && room.game.status === 'finished',
+    turnTimeLimit: room.turnTimeLimit || TURN_TIME_LIMIT,
+    stackDraw2: room.stackDraw2 || false,
   });
 }
 
 io.on('connection', (socket) => {
   console.log(`Socket connected: ${socket.id}`);
 
-  socket.on('room:join', ({ roomId, playerName }) => {
+  socket.on('room:join', ({ roomId, playerName, turnTimeLimit, stackDraw2 }) => {
     roomId = roomId.toUpperCase().trim();
     if (!rooms[roomId]) {
-      rooms[roomId] = { players: [], game: null, host: socket.id, turnTimer: null };
+      const limit = Number(turnTimeLimit);
+      const validLimits = [10, 15, 20];
+      rooms[roomId] = {
+        players: [],
+        game: null,
+        host: socket.id,
+        turnTimer: null,
+        turnTimeLimit: validLimits.includes(limit) ? limit : TURN_TIME_LIMIT,
+        stackDraw2: stackDraw2 === true,
+      };
     }
     const room = rooms[roomId];
 
@@ -304,7 +318,7 @@ io.on('connection', (socket) => {
       socket.emit('room:error', 'Need at least 2 players');
       return;
     }
-    room.game = createGame(roomId, room.players);
+    room.game = createGame(roomId, room.players, { stackDraw2: room.stackDraw2 });
     broadcastRoom(roomId);
     startTurnTimer(roomId);
     console.log(`Game started in room ${roomId}`);
@@ -363,6 +377,14 @@ io.on('connection', (socket) => {
     const room = rooms[roomId];
     if (!room || !room.game) return;
     const result = callUno(room.game, playerId);
+    if (!result.error) broadcastRoom(roomId);
+  });
+
+  socket.on('uno:catch', ({ targetId }) => {
+    const { roomId, playerId } = socket.data;
+    const room = rooms[roomId];
+    if (!room || !room.game || room.game.status !== 'playing') return;
+    const result = catchUno(room.game, playerId, targetId);
     if (!result.error) broadcastRoom(roomId);
   });
 

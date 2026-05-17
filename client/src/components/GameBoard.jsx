@@ -22,7 +22,7 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
 
   if (!gameState) return null;
 
-  const { hand, topCard, currentColor, players, currentPlayerIndex, status, winner, log, deckCount, timeRemaining } = gameState;
+  const { hand, topCard, currentColor, players, currentPlayerIndex, status, winner, log, deckCount, timeRemaining, drawPending, stackDraw2 } = gameState;
   const me = players.find(p => p.id === playerId);
   const isMyTurn = me && players[currentPlayerIndex]?.id === playerId;
 
@@ -52,6 +52,7 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
 
   const canPlayCard = (card) => {
     if (!isMyTurn) return false;
+    if (stackDraw2 && drawPending > 0) return card.value === 'draw2';
     if (card.value === 'wild' || card.value === 'wild4') return true;
     if (card.color === currentColor) return true;
     if (topCard && card.value === topCard.value) return true;
@@ -232,8 +233,31 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
     }}>
       <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 
+      {/* Stack pending banner */}
+      {stackDraw2 && drawPending > 0 && (
+        <div style={{
+          position: 'fixed',
+          top: 20,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'linear-gradient(135deg, #ff4757 0%, #ff6348 100%)',
+          color: '#fff',
+          padding: '12px 28px',
+          borderRadius: 12,
+          zIndex: 998,
+          fontFamily: "'Poppins', sans-serif",
+          boxShadow: '0 8px 24px rgba(255,71,87,0.45)',
+          fontWeight: 700,
+          fontSize: 14,
+          animation: 'slideDown 0.4s ease-out',
+          whiteSpace: 'nowrap',
+        }}>
+          🔥 Stack is {drawPending}! {isMyTurn ? 'Play a +2 to stack or draw all!' : `${players[currentPlayerIndex]?.name} must stack or draw!`}
+        </div>
+      )}
+
       {/* Playable drawn card notification */}
-      {playableDrawnCard && (
+      {!drawPending && playableDrawnCard && (
         <div style={{
           position: 'fixed',
           top: 20,
@@ -586,6 +610,34 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
                     {p.saidUno && <span style={{ color: '#ff4757', fontWeight: 700 }}> UNO!</span>}
                   </div>
                 </div>
+
+                {/* Catch UNO button */}
+                {p.id !== playerId &&
+                  p.cardCount === 1 &&
+                  !p.saidUno &&
+                  players[currentPlayerIndex]?.id !== p.id && (
+                  <button
+                    onClick={() => socket.emit('uno:catch', { targetId: p.id })}
+                    style={{
+                      marginTop: 4,
+                      padding: '3px 10px',
+                      background: 'linear-gradient(135deg, #ff4757 0%, #ff6348 100%)',
+                      border: 'none',
+                      borderRadius: 6,
+                      color: '#fff',
+                      fontSize: 9,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      letterSpacing: 1,
+                      boxShadow: '0 0 12px rgba(255,71,87,0.6)',
+                      animation: 'catchPulse 1s ease-in-out infinite',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    CATCH!
+                  </button>
+                )}
               </div>
             );
           })}
@@ -944,6 +996,10 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
         @keyframes playerPulse {
           0%, 100% { box-shadow: 0 0 0 5px rgba(255,165,2,0.18), 0 0 30px rgba(255,165,2,0.75); }
           50% { box-shadow: 0 0 0 8px rgba(255,165,2,0.28), 0 0 48px rgba(255,165,2,1); }
+        }
+        @keyframes catchPulse {
+          0%, 100% { box-shadow: 0 0 12px rgba(255,71,87,0.6); transform: scale(1); }
+          50% { box-shadow: 0 0 22px rgba(255,71,87,1); transform: scale(1.08); }
         }
       `}</style>
     </div>

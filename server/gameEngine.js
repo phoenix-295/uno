@@ -26,7 +26,8 @@ function shuffle(arr) {
   return a;
 }
 
-function canPlay(card, topCard, currentColor) {
+function canPlay(card, topCard, currentColor, drawPending = 0, stackDraw2 = false) {
+  if (stackDraw2 && drawPending > 0) return card.value === 'draw2';
   if (card.value === 'wild' || card.value === 'wild4') return true;
   if (card.color === currentColor) return true;
   if (card.value === topCard.value) return true;
@@ -81,7 +82,7 @@ function sortCards(cards) {
   });
 }
 
-function createGame(roomId, players) {
+function createGame(roomId, players, { stackDraw2 = false } = {}) {
   const deck = createDeck();
   const hands = {};
   for (const p of players) {
@@ -111,7 +112,7 @@ function createGame(roomId, players) {
     status: 'playing',
     winner: null,
     drawPending: 0,
-    mustDraw: false,
+    stackDraw2,
     turnTimerStart: Date.now(),
     createdAt: Date.now(),
     lastActivity: Date.now(),
@@ -162,7 +163,7 @@ function playCard(game, playerId, cardId, chosenColor = null) {
   const card = hand[cardIndex];
   const topCard = game.discardPile[game.discardPile.length - 1];
 
-  if (!canPlay(card, topCard, game.currentColor)) return { error: 'Cannot play this card' };
+  if (!canPlay(card, topCard, game.currentColor, game.drawPending, game.stackDraw2)) return { error: 'Cannot play this card' };
 
   // Remove from hand
   hand.splice(cardIndex, 1);
@@ -200,10 +201,16 @@ function playCard(game, playerId, cardId, chosenColor = null) {
     if (game.players.length === 2) skipNext = true;
     game.log.push('Direction reversed!');
   } else if (card.value === 'draw2') {
-    const target = game.players[nextPlayerIndex(game)];
-    drawCards(game, target.id, 2);
-    skipNext = true;
-    game.log.push(`${target.name} draws 2 cards and is skipped!`);
+    if (game.stackDraw2) {
+      game.drawPending += 2;
+      const next = game.players[nextPlayerIndex(game)];
+      game.log.push(`${player.name} stacks! ${next.name} must draw ${game.drawPending} or stack!`);
+    } else {
+      const target = game.players[nextPlayerIndex(game)];
+      drawCards(game, target.id, 2);
+      skipNext = true;
+      game.log.push(`${target.name} draws 2 cards and is skipped!`);
+    }
   } else if (card.value === 'wild4') {
     const target = game.players[nextPlayerIndex(game)];
     drawCards(game, target.id, 4);
@@ -221,23 +228,30 @@ function drawCard(game, playerId) {
   const currentPlayer = game.players[game.currentPlayerIndex];
   if (currentPlayer.id !== playerId) return { error: 'Not your turn' };
 
+  // Stacking active: player must draw all pending cards, turn advances
+  if (game.stackDraw2 && game.drawPending > 0) {
+    const count = game.drawPending;
+    const drawn = drawCards(game, playerId, count);
+    game.drawPending = 0;
+    game.log.push(`${currentPlayer.name} draws ${count} cards!`);
+    game.currentPlayerIndex = nextPlayerIndex(game);
+    game.turnTimerStart = Date.now();
+    game.lastActivity = Date.now();
+    return { success: true, game, drawn, canPlayDrawn: false };
+  }
+
   const drawn = drawCards(game, playerId, 1);
   game.log.push(`${currentPlayer.name} draws a card`);
 
-  // Check if drawn card is playable
   const topCard = game.discardPile[game.discardPile.length - 1];
   const drawnCard = drawn[0];
-  const canPlayDrawn = drawnCard && canPlay(drawnCard, topCard, game.currentColor);
+  const canPlayDrawn = drawnCard && canPlay(drawnCard, topCard, game.currentColor, 0, false);
 
-  // If the drawn card is playable, DON'T advance turn yet
-  // Let the player decide if they want to play it
   if (!canPlayDrawn) {
-    // Card not playable, advance turn immediately
     game.currentPlayerIndex = nextPlayerIndex(game);
     game.turnTimerStart = Date.now();
   }
   game.lastActivity = Date.now();
-  // If playable, turn stays with current player to let them play it
 
   return { success: true, game, drawn, canPlayDrawn };
 }
@@ -251,4 +265,26 @@ function callUno(game, playerId) {
   return { success: true, game };
 }
 
-module.exports = { createGame, playCard, drawCard, callUno, canPlay, nextPlayerIndex, drawCards, sortCards };
+function catchUno(game, catcherId, targetId) {
+  if (catcherId === targetId) return { error: 'Cannot catch yourself' };
+  const target = game.players.find(p => p.id === targetId);
+  const catcher = game.players.find(p => p.id === catcherId);
+  if (!target || !catcher) return { error: 'Player not found' };
+
+  const targetEligible =
+    game.hands[targetId].length === 1 &&
+    !target.saidUno &&
+    game.players[game.currentPlayerIndex].id !== targetId;
+
+  if (targetEligible) {
+    drawCards(game, targetId, 2);
+    game.log.push(`${catcher.name} caught ${target.name} without UNO! ${target.name} draws 2!`);
+    return { success: true, caught: true };
+  } else {
+    drawCards(game, catcherId, 2);
+    game.log.push(`${catcher.name} failed to catch ${target.name}! ${catcher.name} draws 2!`);
+    return { success: true, caught: false };
+  }
+}
+
+module.exports = { createGame, playCard, drawCard, callUno, catchUno, canPlay, nextPlayerIndex, drawCards, sortCards };
