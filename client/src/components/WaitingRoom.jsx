@@ -75,7 +75,7 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
         </h1>
       </div>
 
-      {/* Room code */}
+      {/* Room code + Timer preview */}
       <div style={{
         background: 'rgba(255,255,255,0.03)',
         border: '1px solid rgba(255,255,255,0.08)',
@@ -89,7 +89,7 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
         position: 'relative',
         zIndex: 1,
       }}>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{
             color: 'rgba(255,255,255,0.5)',
             fontSize: 10,
@@ -110,6 +110,71 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
             {roomId}
           </span>
         </div>
+
+        {/* Turn timer preview ring */}
+        {turnTimeLimit && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '0 8px 0 12px',
+            borderLeft: '1px solid rgba(255,255,255,0.08)',
+          }}>
+            <div style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}>
+              <svg
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: 48,
+                  height: 48,
+                  transform: 'rotate(-90deg)',
+                }}
+              >
+                <circle
+                  cx={24} cy={24} r={20}
+                  stroke="rgba(255,255,255,0.08)"
+                  strokeWidth="3"
+                  fill="none"
+                />
+                <circle
+                  cx={24} cy={24} r={20}
+                  stroke="#ff4757"
+                  strokeWidth="3"
+                  fill="none"
+                  strokeDasharray={`${2 * Math.PI * 20}`}
+                  strokeDashoffset="0"
+                  style={{ transition: 'stroke-dashoffset 0.3s ease' }}
+                />
+              </svg>
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: "'Space Mono', monospace",
+                fontSize: 16,
+                fontWeight: 700,
+                color: '#ff4757',
+              }}>
+                {turnTimeLimit}s
+              </div>
+            </div>
+            <div style={{
+              fontFamily: "'Poppins',sans-serif",
+              fontSize: 9,
+              letterSpacing: 1.5,
+              color: 'rgba(255,255,255,0.4)',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              lineHeight: 1.3,
+            }}>
+              Turn<br/>Timer
+            </div>
+          </div>
+        )}
+
         <button
           onClick={handleCopyCode}
           style={{
@@ -399,11 +464,159 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
         gap: 16,
         justifyContent: 'center',
       }}>
-        {turnTimeLimit && <span>⏱ {turnTimeLimit}s TURN TIMER</span>}
-        <span style={{ color: stackDraw2 ? 'rgba(255,107,107,0.6)' : 'rgba(255,255,255,0.2)' }}>
-          {stackDraw2 ? '🔥 STACK +2 ON' : 'STACK +2 OFF'}
-        </span>
+        {isHost && (
+          <span style={{ color: stackDraw2 ? 'rgba(255,107,107,0.6)' : 'rgba(255,255,255,0.2)' }}>
+            {stackDraw2 ? '🔥 STACK +2 ON' : 'STACK +2 OFF'}
+          </span>
+        )}
       </div>
+
+      {/* Host settings — only visible to host */}
+      {isHost && !lobbyState.gameStarted && (
+        <div style={{
+          marginTop: 16,
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 16,
+          padding: '20px 28px',
+          width: '100%',
+          maxWidth: 480,
+          backdropFilter: 'blur(40px)',
+          position: 'relative',
+          zIndex: 1,
+          animation: 'slideInUp 0.4s ease-out',
+        }}>
+          <div style={{
+            fontSize: 10,
+            letterSpacing: 2.5,
+            color: 'rgba(255,255,255,0.4)',
+            marginBottom: 16,
+            fontFamily: "'Poppins',sans-serif",
+            fontWeight: 600,
+            textTransform: 'uppercase',
+          }}>
+            Room Settings
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label style={{
+              color: 'rgba(255,255,255,0.5)',
+              fontSize: 10,
+              letterSpacing: 2,
+              fontFamily: "'Poppins',sans-serif",
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              display: 'block',
+              marginBottom: 10,
+            }}>
+              Turn Timer
+            </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[10, 15, 20].map(t => (
+                <button
+                  key={t}
+                  onClick={() => socket.emit('room:update-settings', { turnTimeLimit: t })}
+                  type="button"
+                  style={{
+                    flex: 1,
+                    padding: '10px 0',
+                    background: turnTimeLimit === t ? 'rgba(255,71,87,0.2)' : 'rgba(255,255,255,0.06)',
+                    border: `1.5px solid ${turnTimeLimit === t ? 'rgba(255,71,87,0.6)' : 'rgba(255,255,255,0.12)'}`,
+                    borderRadius: 10,
+                    color: turnTimeLimit === t ? '#ff6b6b' : 'rgba(255,255,255,0.6)',
+                    fontSize: 14,
+                    fontFamily: "'Space Mono', monospace",
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: turnTimeLimit === t ? '0 0 12px rgba(255,71,87,0.2)' : 'none',
+                  }}
+                >
+                  {t}s
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={{
+              color: 'rgba(255,255,255,0.5)',
+              fontSize: 10,
+              letterSpacing: 2,
+              fontFamily: "'Poppins',sans-serif",
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              display: 'block',
+              marginBottom: 10,
+            }}>
+              House Rules
+            </label>
+            <button
+              type="button"
+              onClick={() => socket.emit('room:update-settings', { stackDraw2: !stackDraw2 })}
+              style={{
+                width: '100%',
+                padding: '12px 18px',
+                background: stackDraw2 ? 'rgba(255,71,87,0.15)' : 'rgba(255,255,255,0.04)',
+                border: `1.5px solid ${stackDraw2 ? 'rgba(255,71,87,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                borderRadius: 10,
+                color: stackDraw2 ? '#ff6b6b' : 'rgba(255,255,255,0.4)',
+                fontSize: 13,
+                fontFamily: "'Poppins', sans-serif",
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: stackDraw2 ? '0 0 12px rgba(255,71,87,0.15)' : 'none',
+              }}
+            >
+              <span>Stack +2 cards</span>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: stackDraw2 ? '#ff6b6b' : 'rgba(255,255,255,0.25)',
+              }}>
+                {stackDraw2 ? 'ON' : 'OFF'}
+                <span style={{
+                  width: 32,
+                  height: 18,
+                  borderRadius: 9,
+                  background: stackDraw2 ? 'rgba(255,71,87,0.6)' : 'rgba(255,255,255,0.1)',
+                  position: 'relative',
+                  transition: 'background 0.2s ease',
+                  flexShrink: 0,
+                }}>
+                  <span style={{
+                    position: 'absolute',
+                    top: 2,
+                    left: stackDraw2 ? 16 : 2,
+                    width: 14,
+                    height: 14,
+                    borderRadius: '50%',
+                    background: stackDraw2 ? '#ff4757' : 'rgba(255,255,255,0.3)',
+                    transition: 'left 0.2s ease, background 0.2s ease',
+                  }} />
+                </span>
+              </span>
+            </button>
+            <div style={{
+              marginTop: 6,
+              fontSize: 10,
+              color: 'rgba(255,255,255,0.25)',
+              fontFamily: "'Poppins',sans-serif",
+              paddingLeft: 2,
+            }}>
+              Counter a +2 with another +2 — stacks until someone can't
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes float {
@@ -425,6 +638,10 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
         @keyframes fadeInScale {
           from { opacity: 0; transform: scale(0.9); }
           to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes slideInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         ::-webkit-scrollbar {
           width: 6px;

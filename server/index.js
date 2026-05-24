@@ -306,6 +306,31 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('room:update-settings', ({ turnTimeLimit, stackDraw2 }) => {
+    const { roomId } = socket.data;
+    const room = rooms[roomId];
+    if (!room) return;
+    if (room.host !== socket.id) {
+      socket.emit('room:error', 'Only host can change settings');
+      return;
+    }
+    if (room.game) {
+      socket.emit('room:error', 'Cannot change settings after game starts');
+      return;
+    }
+    if (turnTimeLimit !== undefined) {
+      const limit = Number(turnTimeLimit);
+      const validLimits = [10, 15, 20];
+      if (validLimits.includes(limit)) {
+        room.turnTimeLimit = limit;
+      }
+    }
+    if (stackDraw2 !== undefined) {
+      room.stackDraw2 = stackDraw2 === true;
+    }
+    broadcastRoom(roomId);
+  });
+
   socket.on('game:start', () => {
     const { roomId } = socket.data;
     const room = rooms[roomId];
