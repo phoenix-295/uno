@@ -388,7 +388,7 @@ export default function Lobby({ socket, onJoined }) {
         zIndex: 1,
         minHeight: 100,
       }}>
-        <AdUnit adSlot="1234567890" />
+        <AdUnit adSlot="8007516946" />
       </div>
 
       <div style={{

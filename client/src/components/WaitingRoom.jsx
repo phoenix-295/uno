@@ -446,7 +446,7 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
         zIndex: 1,
         minHeight: 100,
       }}>
-        <AdUnit adSlot="1234567890" />
+        <AdUnit adSlot="8007516946" />
       </div>
 
       {players.length < 2 && (
