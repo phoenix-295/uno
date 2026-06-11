@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AdUnit from './AdUnit';
 
 const COLOR_DOT = ['#ff4757', '#2ed573', '#1e90ff', '#ffa502', '#9b5de5', '#ff6b9d', '#00d2d3', '#ffd93d'];
 
@@ -435,6 +436,17 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
             START GAME
           </button>
         )}
+      </div>
+
+      <div style={{
+        width: '100%',
+        maxWidth: 480,
+        marginTop: 28,
+        position: 'relative',
+        zIndex: 1,
+        minHeight: 100,
+      }}>
+        <AdUnit adSlot="1234567890" />
       </div>
 
       {players.length < 2 && (

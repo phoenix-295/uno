@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AdUnit from './AdUnit';
 
 export default function Lobby({ socket, onJoined }) {
   const [name, setName] = useState('');
@@ -380,7 +381,18 @@ export default function Lobby({ socket, onJoined }) {
       </div>
 
       <div style={{
-        marginTop: 32,
+        width: '100%',
+        maxWidth: 440,
+        marginTop: 28,
+        position: 'relative',
+        zIndex: 1,
+        minHeight: 100,
+      }}>
+        <AdUnit adSlot="1234567890" />
+      </div>
+
+      <div style={{
+        marginTop: 28,
         color: 'rgba(255,255,255,0.35)',
         fontSize: 11,
         fontFamily: "'Poppins',sans-serif",
