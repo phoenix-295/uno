@@ -173,6 +173,8 @@ function getRoomSafeState(room, requestingPlayerId = null, timeRemaining = null)
     deckCount: game.deck.length,
     status: game.status,
     winner: game.winner,
+    winnerScore: game.winnerScore,
+    allHands: game.status === 'finished' ? game.hands : null,
     log: game.log.slice(-8),
     hand: requestingPlayerId ? game.hands[requestingPlayerId] : [],
     timeRemaining,
@@ -229,19 +231,20 @@ function broadcastRoom(roomId) {
   // Also send lobby state
   io.to(roomId).emit('lobby:state', {
     roomId,
-    players: room.players.map(p => ({ id: p.id, name: p.name, ready: p.ready })),
+    players: room.players.map(p => ({ id: p.id, name: p.name, ready: p.ready, score: p.score || 0 })),
     host: room.host,
     gameStarted: !!room.game && room.game.status !== 'finished',
     gameFinished: !!room.game && room.game.status === 'finished',
     turnTimeLimit: room.turnTimeLimit || TURN_TIME_LIMIT,
     stackDraw2: room.stackDraw2 || false,
+    drawTillColor: room.drawTillColor || false,
   });
 }
 
 io.on('connection', (socket) => {
   console.log(`Socket connected: ${socket.id}`);
 
-  socket.on('room:join', ({ roomId, playerName, turnTimeLimit, stackDraw2 }) => {
+  socket.on('room:join', ({ roomId, playerName, turnTimeLimit, stackDraw2, drawTillColor }) => {
     roomId = roomId.toUpperCase().trim();
     if (!rooms[roomId]) {
       const limit = Number(turnTimeLimit);
@@ -253,6 +256,7 @@ io.on('connection', (socket) => {
         turnTimer: null,
         turnTimeLimit: validLimits.includes(limit) ? limit : TURN_TIME_LIMIT,
         stackDraw2: stackDraw2 === true,
+        drawTillColor: drawTillColor === true,
       };
     }
     const room = rooms[roomId];
@@ -283,6 +287,7 @@ io.on('connection', (socket) => {
       socketId: socket.id,
       name: playerName || `Player${room.players.length + 1}`,
       ready: false,
+      score: 0,
       lastSeen: Date.now(),
     };
     room.players.push(player);
@@ -306,7 +311,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('room:update-settings', ({ turnTimeLimit, stackDraw2 }) => {
+  socket.on('room:update-settings', ({ turnTimeLimit, stackDraw2, drawTillColor }) => {
     const { roomId } = socket.data;
     const room = rooms[roomId];
     if (!room) return;
@@ -328,6 +333,9 @@ io.on('connection', (socket) => {
     if (stackDraw2 !== undefined) {
       room.stackDraw2 = stackDraw2 === true;
     }
+    if (drawTillColor !== undefined) {
+      room.drawTillColor = drawTillColor === true;
+    }
     broadcastRoom(roomId);
   });
 
@@ -343,7 +351,7 @@ io.on('connection', (socket) => {
       socket.emit('room:error', 'Need at least 2 players');
       return;
     }
-    room.game = createGame(roomId, room.players, { stackDraw2: room.stackDraw2 });
+    room.game = createGame(roomId, room.players, { stackDraw2: room.stackDraw2, drawTillColor: room.drawTillColor });
     broadcastRoom(roomId);
     startTurnTimer(roomId);
     console.log(`Game started in room ${roomId}`);
@@ -360,6 +368,14 @@ io.on('connection', (socket) => {
       return;
     }
     room.game.turnTimerStart = Date.now();
+    
+    if (room.game.status === 'finished' && room.game.winnerScore !== undefined) {
+      const winnerPlayer = room.players.find(p => p.id === room.game.winner.id);
+      if (winnerPlayer && !room.game.scoreAdded) {
+        winnerPlayer.score = (winnerPlayer.score || 0) + room.game.winnerScore;
+        room.game.scoreAdded = true;
+      }
+    }
     
     // Immediate broadcast for card play - critical for real-time feel
     broadcastRoom(roomId);

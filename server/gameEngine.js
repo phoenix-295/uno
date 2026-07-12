@@ -82,7 +82,7 @@ function sortCards(cards) {
   });
 }
 
-function createGame(roomId, players, { stackDraw2 = false } = {}) {
+function createGame(roomId, players, { stackDraw2 = false, drawTillColor = false } = {}) {
   const deck = createDeck();
   const hands = {};
   for (const p of players) {
@@ -113,6 +113,7 @@ function createGame(roomId, players, { stackDraw2 = false } = {}) {
     winner: null,
     drawPending: 0,
     stackDraw2,
+    drawTillColor,
     turnTimerStart: Date.now(),
     createdAt: Date.now(),
     lastActivity: Date.now(),
@@ -187,7 +188,26 @@ function playCard(game, playerId, cardId, chosenColor = null) {
   if (hand.length === 0) {
     game.status = 'finished';
     game.winner = player;
-    game.log.push(`🎉 ${player.name} wins!`);
+    
+    // Calculate official UNO points (sum of remaining opponent cards)
+    let score = 0;
+    for (const pid in game.hands) {
+      const pHand = game.hands[pid];
+      for (const card of pHand) {
+        if (card.value === 'wild' || card.value === 'wild4') {
+          score += 50;
+        } else if (card.value === 'skip' || card.value === 'reverse' || card.value === 'draw2') {
+          score += 20;
+        } else {
+          const val = parseInt(card.value, 10);
+          if (!isNaN(val)) {
+            score += val;
+          }
+        }
+      }
+    }
+    game.winnerScore = score;
+    game.log.push(`🎉 ${player.name} wins with ${score} points!`);
     return { success: true, game };
   }
 
@@ -240,20 +260,110 @@ function drawCard(game, playerId) {
     return { success: true, game, drawn, canPlayDrawn: false };
   }
 
-  const drawn = drawCards(game, playerId, 1);
-  game.log.push(`${currentPlayer.name} draws a card`);
+  const drawn = [];
+  let matchingCard = null;
 
-  const topCard = game.discardPile[game.discardPile.length - 1];
-  const drawnCard = drawn[0];
-  const canPlayDrawn = drawnCard && canPlay(drawnCard, topCard, game.currentColor, 0, false);
-
-  if (!canPlayDrawn) {
-    game.currentPlayerIndex = nextPlayerIndex(game);
-    game.turnTimerStart = Date.now();
+  if (game.drawTillColor) {
+    // Keep drawing until matching color (or wild) is drawn
+    while (true) {
+      const cardArray = drawCards(game, playerId, 1);
+      if (cardArray.length === 0) break; // Deck empty
+      const drawnCard = cardArray[0];
+      drawn.push(drawnCard);
+      
+      // Check if it matches currentColor
+      if (drawnCard.color === game.currentColor || drawnCard.color === 'wild') {
+        matchingCard = drawnCard;
+        break;
+      }
+    }
+  } else {
+    // Draw only 1 card
+    const cardArray = drawCards(game, playerId, 1);
+    if (cardArray.length > 0) {
+      const drawnCard = cardArray[0];
+      drawn.push(drawnCard);
+      if (drawnCard.color === game.currentColor || drawnCard.color === 'wild') {
+        matchingCard = drawnCard;
+      }
+    }
   }
-  game.lastActivity = Date.now();
 
-  return { success: true, game, drawn, canPlayDrawn };
+  if (drawn.length > 0) {
+    if (matchingCard) {
+      game.log.push(`${currentPlayer.name} drew and automatically played ${matchingCard.color === 'wild' ? 'Wild' : matchingCard.color} ${matchingCard.value}`);
+      
+      // Remove matchingCard from player's hand since drawCards already added it to hands[playerId]
+      game.hands[playerId] = game.hands[playerId].filter(c => c.id !== matchingCard.id);
+      
+      // Push to discard pile
+      let effectiveColor = matchingCard.color;
+      if (matchingCard.color === 'wild') {
+        effectiveColor = game.currentColor; // Default to table color
+        game.discardPile.push({ ...matchingCard, chosenColor: effectiveColor });
+      } else {
+        game.discardPile.push(matchingCard);
+      }
+      game.currentColor = effectiveColor;
+      
+      // Check win (just in case)
+      if (game.hands[playerId].length === 0) {
+        game.status = 'finished';
+        game.winner = currentPlayer;
+        // recalculate score
+        let score = 0;
+        for (const pid in game.hands) {
+          const pHand = game.hands[pid];
+          for (const card of pHand) {
+            if (card.value === 'wild' || card.value === 'wild4') score += 50;
+            else if (card.value === 'skip' || card.value === 'reverse' || card.value === 'draw2') score += 20;
+            else {
+              const val = parseInt(card.value, 10);
+              if (!isNaN(val)) score += val;
+            }
+          }
+        }
+        game.winnerScore = score;
+      } else {
+        // Apply card effects
+        let skipNext = false;
+        if (matchingCard.value === 'skip') {
+          skipNext = true;
+          game.log.push(`${game.players[nextPlayerIndex(game)].name} was skipped!`);
+        } else if (matchingCard.value === 'reverse') {
+          game.direction *= -1;
+          if (game.players.length === 2) skipNext = true;
+          game.log.push('Direction reversed!');
+        } else if (matchingCard.value === 'draw2') {
+          if (game.stackDraw2) {
+            game.drawPending += 2;
+          } else {
+            drawCards(game, game.players[nextPlayerIndex(game)].id, 2);
+            skipNext = true;
+            game.log.push(`${game.players[nextPlayerIndex(game)].name} draws 2 and is skipped!`);
+          }
+        } else if (matchingCard.value === 'wild4') {
+          drawCards(game, game.players[nextPlayerIndex(game)].id, 4);
+          skipNext = true;
+          game.log.push(`${game.players[nextPlayerIndex(game)].name} draws 4 and is skipped!`);
+        }
+        
+        game.currentPlayerIndex = nextPlayerIndex(game, skipNext);
+        game.turnTimerStart = Date.now();
+      }
+      
+      game.lastActivity = Date.now();
+      return { success: true, game, drawn, canPlayDrawn: true };
+    } else {
+      game.log.push(`${currentPlayer.name} draws a card`);
+      game.currentPlayerIndex = nextPlayerIndex(game);
+      game.turnTimerStart = Date.now();
+      game.lastActivity = Date.now();
+      return { success: true, game, drawn, canPlayDrawn: false };
+    }
+  }
+
+  return { success: true, game, drawn, canPlayDrawn: false };
 }
 
 function callUno(game, playerId) {

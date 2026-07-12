@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import AdUnit from './AdUnit';
 
-const COLOR_DOT = ['#ff4757', '#2ed573', '#1e90ff', '#ffa502', '#9b5de5', '#ff6b9d', '#00d2d3', '#ffd93d'];
+const COLOR_DOT = ['var(--color-red-start, #ff3366)', 'var(--color-green-start, #00f5a0)', 'var(--color-blue-start, #00c6ff)', 'var(--color-yellow-start, #f7b733)', '#9b5de5', '#ff6b9d', '#00d2d3', '#ffd93d'];
 
 export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
   const [copied, setCopied] = useState(false);
 
   if (!lobbyState) return null;
-  const { players, host, turnTimeLimit, stackDraw2 } = lobbyState;
+  const { players, host, turnTimeLimit, stackDraw2, drawTillColor } = lobbyState;
   const me = players.find(p => p.id === playerId);
   const isHost = host === socket.id;
   const allReady = players.length >= 2 && players.every(p => p.ready);
@@ -32,203 +32,169 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0a0e27 0%, #1a1a3e 50%, #0f1535 100%)',
+      background: 'radial-gradient(circle at center, #16161a 0%, #000000 100%)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      fontFamily: "'Poppins', sans-serif",
       padding: 24,
       color: '#fff',
       position: 'relative',
       overflow: 'auto',
     }}>
-      <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-
-      {/* Animated background orbs */}
+      {/* Dynamic Background Mesh Orbs */}
       <div style={{
-        position: 'fixed',
-        top: '20%',
+        position: 'absolute',
+        top: '10%',
         right: '-10%',
-        width: 300,
-        height: 300,
-        background: 'radial-gradient(circle, rgba(45,213,115,0.12) 0%, transparent 70%)',
+        width: 500,
+        height: 500,
+        background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)',
         borderRadius: '50%',
-        filter: 'blur(60px)',
+        filter: 'blur(90px)',
         pointerEvents: 'none',
-        animation: 'float 12s ease-in-out infinite',
+        animation: 'float 18s ease-in-out infinite',
       }} />
 
-      <div style={{ marginBottom: 40, textAlign: 'center', position: 'relative', zIndex: 1, animation: 'slideInDown 0.6s ease-out' }}>
-        <div style={{ fontSize: 48, marginBottom: 12, animation: 'bounce 0.8s ease-in-out 0.2s' }}>🃏</div>
+      {/* Header */}
+      <div style={{ marginBottom: 32, textAlign: 'center', position: 'relative', zIndex: 10, animation: 'scaleUp 0.6s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+        <div style={{ fontSize: 44, marginBottom: 8, animation: 'float 6s ease-in-out infinite' }}>🃏</div>
         <h1 style={{
-          fontSize: 42,
+          fontSize: 36,
           margin: 0,
           letterSpacing: 2,
-          fontFamily: "'Poppins', sans-serif",
           fontWeight: 800,
-          background: 'linear-gradient(180deg, #ff4757 0%, #ffa502 100%)',
+          background: 'linear-gradient(135deg, #6366f1 0%, #ec4899 100%)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
-          animation: 'fadeInScale 0.7s ease-out 0.1s backwards',
+          fontFamily: "'Space Grotesk', sans-serif"
         }}>
           WAITING ROOM
         </h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>
+          Prepare for the game
+        </p>
       </div>
 
-      {/* Room code + Timer preview */}
-      <div style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 16,
-        padding: '14px 28px',
-        marginBottom: 40,
-        backdropFilter: 'blur(40px)',
+      {/* Room code and stats bar */}
+      <div className="glass-panel" style={{
+        padding: '16px 28px',
+        marginBottom: 24,
         display: 'flex',
         alignItems: 'center',
-        gap: 16,
+        gap: 24,
         position: 'relative',
-        zIndex: 1,
+        zIndex: 10,
+        width: '100%',
+        maxWidth: 500,
       }}>
         <div style={{ flex: 1 }}>
           <div style={{
-            color: 'rgba(255,255,255,0.5)',
+            color: 'var(--text-secondary)',
             fontSize: 10,
             letterSpacing: 2,
-            fontFamily: "'Poppins',sans-serif",
-            fontWeight: 600,
+            fontWeight: 700,
             textTransform: 'uppercase',
             marginBottom: 4,
           }}>
             Room Code
           </div>
           <span style={{
-            fontSize: 28,
+            fontSize: 26,
             letterSpacing: 4,
-            fontFamily: "'Space Mono', monospace",
+            fontFamily: "'Fira Code', monospace",
             fontWeight: 700,
+            background: 'linear-gradient(135deg, #fff 0%, #94a3b8 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
           }}>
             {roomId}
           </span>
         </div>
 
-        {/* Turn timer preview ring */}
+        {/* Turn timer status */}
         {turnTimeLimit && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 10,
-            padding: '0 8px 0 12px',
+            gap: 12,
+            paddingLeft: 20,
             borderLeft: '1px solid rgba(255,255,255,0.08)',
           }}>
-            <div style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}>
-              <svg
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: 48,
-                  height: 48,
-                  transform: 'rotate(-90deg)',
-                }}
-              >
-                <circle
-                  cx={24} cy={24} r={20}
-                  stroke="rgba(255,255,255,0.08)"
-                  strokeWidth="3"
-                  fill="none"
-                />
-                <circle
-                  cx={24} cy={24} r={20}
-                  stroke="#ff4757"
-                  strokeWidth="3"
-                  fill="none"
-                  strokeDasharray={`${2 * Math.PI * 20}`}
-                  strokeDashoffset="0"
-                  style={{ transition: 'stroke-dashoffset 0.3s ease' }}
-                />
-              </svg>
-              <div style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontFamily: "'Space Mono', monospace",
-                fontSize: 16,
-                fontWeight: 700,
-                color: '#ff4757',
-              }}>
-                {turnTimeLimit}s
-              </div>
+            <div style={{
+              width: 38,
+              height: 38,
+              borderRadius: '50%',
+              border: '2px solid var(--accent)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontFamily: "'Fira Code', monospace",
+              fontSize: 13,
+              fontWeight: 700,
+              color: 'var(--accent)',
+              boxShadow: '0 0 10px var(--accent-glow)'
+            }}>
+              {turnTimeLimit}s
             </div>
             <div style={{
-              fontFamily: "'Poppins',sans-serif",
               fontSize: 9,
               letterSpacing: 1.5,
-              color: 'rgba(255,255,255,0.4)',
-              fontWeight: 600,
+              color: 'var(--text-secondary)',
+              fontWeight: 700,
               textTransform: 'uppercase',
               lineHeight: 1.3,
             }}>
-              Turn<br/>Timer
+              Turn<br/>Limit
             </div>
           </div>
         )}
 
         <button
           onClick={handleCopyCode}
+          className="btn-secondary"
           style={{
-            background: copied ? 'rgba(46,213,115,0.2)' : 'rgba(255,71,87,0.1)',
-            border: `1.5px solid ${copied ? 'rgba(46,213,115,0.5)' : 'rgba(255,255,255,0.15)'}`,
-            color: copied ? '#2ed573' : 'rgba(255,255,255,0.7)',
-            cursor: 'pointer',
-            fontSize: 16,
-            borderRadius: 10,
-            padding: '10px 14px',
-            transition: 'all 0.3s ease',
-            fontWeight: 600,
+            padding: '10px 16px',
+            fontSize: 13,
+            borderRadius: 12,
+            border: copied ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.08)',
+            background: copied ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.02)',
+            color: copied ? '#10b981' : '#fff'
           }}
           title="Copy room code"
         >
-          {copied ? '✓ Copied' : '📋'}
+          {copied ? '✓ Copied' : '📋 Copy'}
         </button>
       </div>
 
-      {/* Players list */}
-      <div style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 20,
-        padding: 28,
+      {/* Players List Card */}
+      <div className="glass-panel" style={{
+        padding: 24,
         width: '100%',
-        maxWidth: 480,
-        marginBottom: 32,
-        backdropFilter: 'blur(40px)',
+        maxWidth: 500,
+        marginBottom: 24,
         position: 'relative',
-        zIndex: 1,
-        maxHeight: '45vh',
+        zIndex: 10,
+        maxHeight: '40vh',
         overflowY: 'auto',
-        scrollbarWidth: 'thin',
-        scrollbarColor: 'rgba(255,255,255,0.15) transparent',
       }}>
         <div style={{
-          fontSize: 10,
-          letterSpacing: 2.5,
-          color: 'rgba(255,255,255,0.5)',
-          marginBottom: 20,
-          fontFamily: "'Poppins',sans-serif",
-          fontWeight: 600,
+          fontSize: 11,
+          letterSpacing: 2,
+          color: 'var(--text-secondary)',
+          marginBottom: 16,
+          fontWeight: 700,
           textTransform: 'uppercase',
+          display: 'flex',
+          justifyContent: 'space-between'
         }}>
-          Players ({players.length}/8)
+          <span>Players ({players.length}/8)</span>
+          <span style={{ color: allReady ? '#10b981' : 'var(--text-muted)' }}>
+            {allReady ? 'Ready to launch' : 'Waiting for ready'}
+          </span>
         </div>
 
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {players.map((p, i) => (
             <div
               key={p.id}
@@ -236,101 +202,124 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 14,
-                padding: '14px 16px',
-                background: p.id === playerId ? 'rgba(255,71,87,0.08)' : 'rgba(255,255,255,0.02)',
-                border: `1px solid ${p.id === playerId ? 'rgba(255,71,87,0.2)' : 'rgba(255,255,255,0.06)'}`,
-                borderRadius: 12,
+                padding: '12px 16px',
+                background: p.id === playerId ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.01)',
+                border: `1px solid ${p.id === playerId ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.05)'}`,
+                borderRadius: 14,
                 transition: 'all 0.3s ease',
-                animation: `slideInLeft 0.5s ease-out ${i * 0.1}s backwards`,
               }}
             >
+              {/* Avatar */}
               <div style={{
-                width: 42,
-                height: 42,
+                width: 36,
+                height: 36,
                 borderRadius: '50%',
                 background: COLOR_DOT[i % COLOR_DOT.length],
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 16,
-                fontWeight: 700,
-                color: '#fff',
-                boxShadow: `0 4px 12px ${COLOR_DOT[i % COLOR_DOT.length]}40`,
+                fontSize: 14,
+                fontWeight: 800,
+                color: '#060814',
+                boxShadow: `0 0 12px ${COLOR_DOT[i % COLOR_DOT.length]}50`,
               }}>
                 {p.name[0].toUpperCase()}
               </div>
 
+              {/* Name */}
               <div style={{ flex: 1 }}>
                 <div style={{
-                  fontFamily: "'Poppins',sans-serif",
                   fontWeight: 700,
                   fontSize: 14,
                   color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8
                 }}>
                   {p.name}
                   {p.id === playerId && (
-                    <span style={{
-                      color: '#ffa502',
-                      fontSize: 12,
-                      marginLeft: 8,
-                      fontWeight: 600,
-                    }}>
+                    <span style={{ color: 'var(--accent)', fontSize: 11, fontWeight: 600 }}>
                       (you)
                     </span>
                   )}
-                  {isHost && p.id === playerId && (
+                  {host === p.id && (
                     <span style={{
-                      color: '#ff4757',
-                      fontSize: 11,
-                      marginLeft: 6,
-                      fontWeight: 700,
+                      color: 'var(--color-yellow-start, #f7b733)',
+                      fontSize: 10,
+                      fontWeight: 800,
+                      background: 'rgba(247,183,51,0.1)',
+                      border: '1px solid rgba(247,183,51,0.2)',
+                      borderRadius: 4,
+                      padding: '1px 5px',
                     }}>
-                      ★ HOST
+                      👑 HOST
                     </span>
                   )}
                 </div>
               </div>
 
+              {/* Score display */}
+              <div style={{
+                marginRight: 16,
+                fontSize: 13,
+                fontWeight: 800,
+                color: 'var(--color-yellow-start, #ffcc00)',
+                background: 'rgba(255, 204, 0, 0.08)',
+                border: '1px solid rgba(255, 204, 0, 0.15)',
+                padding: '2px 8px',
+                borderRadius: 8,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}>
+                🏆 {p.score || 0} PTS
+              </div>
+
+              {/* Ready Tag */}
               <div style={{
                 fontSize: 12,
-                fontFamily: "'Poppins',sans-serif",
-                color: p.ready ? '#2ed573' : 'rgba(255,255,255,0.4)',
-                fontWeight: p.ready ? 700 : 500,
-                transition: 'all 0.3s ease',
+                color: p.ready ? '#10b981' : 'var(--text-muted)',
+                fontWeight: 700,
               }}>
                 {p.ready ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    ✓ READY
+                  <span style={{
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                    padding: '2px 8px',
+                    borderRadius: 8,
+                  }}>
+                    READY
                   </span>
                 ) : (
-                  <span style={{ opacity: 0.6 }}>Waiting...</span>
+                  <span style={{ opacity: 0.6 }}>WAITING</span>
                 )}
               </div>
 
+              {/* Kick button */}
               {isHost && p.id !== playerId && (
                 <button
                   onClick={() => socket.emit('player:kick', { playerId: p.id })}
                   title={`Kick ${p.name}`}
                   style={{
-                    background: 'rgba(255,71,87,0.12)',
-                    border: '1px solid rgba(255,71,87,0.3)',
-                    color: '#ff4757',
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    color: '#ef4444',
                     borderRadius: 8,
-                    padding: '6px 10px',
+                    width: 28,
+                    height: 28,
                     cursor: 'pointer',
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: 700,
-                    fontFamily: "'Poppins',sans-serif",
                     transition: 'all 0.2s ease',
-                    lineHeight: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                   onMouseEnter={e => {
-                    e.currentTarget.style.background = 'rgba(255,71,87,0.25)';
-                    e.currentTarget.style.borderColor = 'rgba(255,71,87,0.6)';
+                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.25)';
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.background = 'rgba(255,71,87,0.12)';
-                    e.currentTarget.style.borderColor = 'rgba(255,71,87,0.3)';
+                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
                   }}
                 >
                   ✕
@@ -341,187 +330,100 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
         </div>
       </div>
 
-      {/* Action buttons */}
+      {/* Buttons */}
       <div style={{
         display: 'flex',
         gap: 12,
         width: '100%',
-        maxWidth: 480,
+        maxWidth: 500,
         position: 'relative',
-        zIndex: 1,
+        zIndex: 10,
       }}>
         <button
           onClick={() => socket.emit('player:ready')}
+          className="btn-secondary"
           style={{
             flex: 1,
-            padding: '16px 24px',
-            background: me?.ready
-              ? 'rgba(255,255,255,0.06)'
-              : 'linear-gradient(135deg, #2ed573 0%, #1ecc71 100%)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: 12,
-            color: me?.ready ? 'rgba(255,255,255,0.5)' : '#fff',
-            fontSize: 14,
-            fontFamily: "'Poppins', sans-serif",
-            fontWeight: 700,
-            cursor: 'pointer',
-            boxShadow: me?.ready ? 'none' : '0 6px 20px rgba(46,213,115,0.3)',
-            transition: 'all 0.3s ease',
-            letterSpacing: 0.5,
-          }}
-          onMouseEnter={e => {
-            if (!me?.ready) {
-              e.currentTarget.style.boxShadow = '0 8px 28px rgba(46,213,115,0.4)';
-              e.currentTarget.style.transform = 'translateY(-2px)';
-            }
-          }}
-          onMouseLeave={e => {
-            if (!me?.ready) {
-              e.currentTarget.style.boxShadow = '0 6px 20px rgba(46,213,115,0.3)';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }
-          }}
-          onMouseDown={e => {
-            if (!me?.ready) e.currentTarget.style.transform = 'scale(0.98)';
-          }}
-          onMouseUp={e => {
-            if (!me?.ready) e.currentTarget.style.transform = 'translateY(0)';
+            background: me?.ready ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+            borderColor: me?.ready ? '#ef4444' : '#10b981',
+            color: me?.ready ? '#ef4444' : '#10b981',
           }}
         >
-          {me?.ready ? 'NOT READY' : '✓ READY UP'}
+          {me?.ready ? '✕ NOT READY' : '✓ READY UP'}
         </button>
 
         {isHost && (
           <button
             onClick={() => socket.emit('game:start')}
             disabled={!allReady}
+            className="btn-primary"
             style={{
               flex: 1,
-              padding: '16px 24px',
-              background: allReady
-                ? 'linear-gradient(135deg, #ff4757 0%, #ff6348 100%)'
-                : 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: 12,
-              color: allReady ? '#fff' : 'rgba(255,255,255,0.3)',
-              fontSize: 14,
-              fontFamily: "'Poppins', sans-serif",
-              fontWeight: 700,
+              opacity: allReady ? 1 : 0.5,
               cursor: allReady ? 'pointer' : 'not-allowed',
-              boxShadow: allReady ? '0 6px 20px rgba(255,71,87,0.3)' : 'none',
-              transition: 'all 0.3s ease',
-              letterSpacing: 0.5,
-            }}
-            onMouseEnter={e => {
-              if (allReady) {
-                e.currentTarget.style.boxShadow = '0 8px 28px rgba(255,71,87,0.4)';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }
-            }}
-            onMouseLeave={e => {
-              if (allReady) {
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(255,71,87,0.3)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }
-            }}
-            onMouseDown={e => {
-              if (allReady) e.currentTarget.style.transform = 'scale(0.98)';
-            }}
-            onMouseUp={e => {
-              if (allReady) {
-                e.currentTarget.style.transform = 'translateY(0)';
-              }
             }}
           >
-            START GAME
+            🚀 START GAME
           </button>
         )}
       </div>
 
+      {/* Ad Space */}
       <div style={{
         width: '100%',
-        maxWidth: 480,
-        marginTop: 28,
-        position: 'relative',
-        zIndex: 1,
-        minHeight: 100,
+        maxWidth: 500,
+        marginTop: 20,
+        borderRadius: 16,
+        overflow: 'hidden',
       }}>
         <AdUnit adSlot="8007516946" />
       </div>
 
       {players.length < 2 && (
         <p style={{
-          marginTop: 28,
-          color: 'rgba(255,255,255,0.35)',
-          fontSize: 12,
-          fontFamily: "'Poppins',sans-serif",
+          marginTop: 20,
+          color: 'var(--text-muted)',
+          fontSize: 13,
           textAlign: 'center',
           position: 'relative',
-          zIndex: 1,
+          zIndex: 10,
         }}>
-          Waiting for at least 2 players...
+          Waiting for at least 2 players to start...
         </p>
       )}
 
-      <div style={{
-        marginTop: 20,
-        color: 'rgba(255,255,255,0.3)',
-        fontSize: 11,
-        fontFamily: "'Poppins',sans-serif",
-        textAlign: 'center',
-        position: 'relative',
-        zIndex: 1,
-        letterSpacing: 1,
-        display: 'flex',
-        gap: 16,
-        justifyContent: 'center',
-      }}>
-        {isHost && (
-          <span style={{ color: stackDraw2 ? 'rgba(255,107,107,0.6)' : 'rgba(255,255,255,0.2)' }}>
-            {stackDraw2 ? '🔥 STACK +2 ON' : 'STACK +2 OFF'}
-          </span>
-        )}
-      </div>
-
-      {/* Host settings — only visible to host */}
+      {/* Host Settings */}
       {isHost && !lobbyState.gameStarted && (
-        <div style={{
-          marginTop: 16,
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 16,
-          padding: '20px 28px',
+        <div className="glass-panel" style={{
+          marginTop: 24,
+          padding: 24,
           width: '100%',
-          maxWidth: 480,
-          backdropFilter: 'blur(40px)',
+          maxWidth: 500,
           position: 'relative',
-          zIndex: 1,
-          animation: 'slideInUp 0.4s ease-out',
+          zIndex: 10,
         }}>
           <div style={{
-            fontSize: 10,
-            letterSpacing: 2.5,
-            color: 'rgba(255,255,255,0.4)',
+            fontSize: 11,
+            letterSpacing: 2,
+            color: 'var(--text-secondary)',
             marginBottom: 16,
-            fontFamily: "'Poppins',sans-serif",
-            fontWeight: 600,
+            fontWeight: 700,
             textTransform: 'uppercase',
           }}>
-            Room Settings
+            Lobby Settings (Host)
           </div>
 
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 20 }}>
             <label style={{
-              color: 'rgba(255,255,255,0.5)',
+              color: 'var(--text-secondary)',
               fontSize: 10,
               letterSpacing: 2,
-              fontFamily: "'Poppins',sans-serif",
-              fontWeight: 600,
+              fontWeight: 700,
               textTransform: 'uppercase',
               display: 'block',
               marginBottom: 10,
             }}>
-              Turn Timer
+              Turn Limit
             </label>
             <div style={{ display: 'flex', gap: 8 }}>
               {[10, 15, 20].map(t => (
@@ -531,17 +433,17 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
                   type="button"
                   style={{
                     flex: 1,
-                    padding: '10px 0',
-                    background: turnTimeLimit === t ? 'rgba(255,71,87,0.2)' : 'rgba(255,255,255,0.06)',
-                    border: `1.5px solid ${turnTimeLimit === t ? 'rgba(255,71,87,0.6)' : 'rgba(255,255,255,0.12)'}`,
+                    padding: '8px 0',
+                    background: turnTimeLimit === t ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                    border: turnTimeLimit === t ? '1.5px solid var(--accent)' : '1.5px solid rgba(255, 255, 255, 0.08)',
                     borderRadius: 10,
-                    color: turnTimeLimit === t ? '#ff6b6b' : 'rgba(255,255,255,0.6)',
-                    fontSize: 14,
-                    fontFamily: "'Space Mono', monospace",
+                    color: turnTimeLimit === t ? '#fff' : 'var(--text-secondary)',
+                    fontSize: 13,
+                    fontFamily: "'Fira Code', monospace",
                     fontWeight: 700,
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
-                    boxShadow: turnTimeLimit === t ? '0 0 12px rgba(255,71,87,0.2)' : 'none',
+                    boxShadow: turnTimeLimit === t ? '0 0 12px var(--accent-glow)' : 'none',
                   }}
                 >
                   {t}s
@@ -552,123 +454,104 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
 
           <div>
             <label style={{
-              color: 'rgba(255,255,255,0.5)',
+              color: 'var(--text-secondary)',
               fontSize: 10,
               letterSpacing: 2,
-              fontFamily: "'Poppins',sans-serif",
-              fontWeight: 600,
+              fontWeight: 700,
               textTransform: 'uppercase',
               display: 'block',
               marginBottom: 10,
             }}>
-              House Rules
+              Rule Options
             </label>
             <button
               type="button"
               onClick={() => socket.emit('room:update-settings', { stackDraw2: !stackDraw2 })}
               style={{
                 width: '100%',
-                padding: '12px 18px',
-                background: stackDraw2 ? 'rgba(255,71,87,0.15)' : 'rgba(255,255,255,0.04)',
-                border: `1.5px solid ${stackDraw2 ? 'rgba(255,71,87,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                padding: '10px 16px',
+                background: stackDraw2 ? 'rgba(99, 102, 241, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                border: stackDraw2 ? '1px solid var(--accent)' : '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: 10,
-                color: stackDraw2 ? '#ff6b6b' : 'rgba(255,255,255,0.4)',
+                color: stackDraw2 ? '#fff' : 'var(--text-secondary)',
                 fontSize: 13,
-                fontFamily: "'Poppins', sans-serif",
                 fontWeight: 600,
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                boxShadow: stackDraw2 ? '0 0 12px rgba(255,71,87,0.15)' : 'none',
+                marginBottom: 10,
               }}
             >
-              <span>Stack +2 cards</span>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: 1,
-                color: stackDraw2 ? '#ff6b6b' : 'rgba(255,255,255,0.25)',
+              <span>Stack +2 Cards</span>
+              <div style={{
+                width: 32,
+                height: 18,
+                borderRadius: 99,
+                background: stackDraw2 ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)',
+                position: 'relative',
+                transition: 'background 0.2s ease',
               }}>
-                {stackDraw2 ? 'ON' : 'OFF'}
-                <span style={{
-                  width: 32,
-                  height: 18,
-                  borderRadius: 9,
-                  background: stackDraw2 ? 'rgba(255,71,87,0.6)' : 'rgba(255,255,255,0.1)',
-                  position: 'relative',
-                  transition: 'background 0.2s ease',
-                  flexShrink: 0,
-                }}>
-                  <span style={{
-                    position: 'absolute',
-                    top: 2,
-                    left: stackDraw2 ? 16 : 2,
-                    width: 14,
-                    height: 14,
-                    borderRadius: '50%',
-                    background: stackDraw2 ? '#ff4757' : 'rgba(255,255,255,0.3)',
-                    transition: 'left 0.2s ease, background 0.2s ease',
-                  }} />
-                </span>
-              </span>
+                <div style={{
+                  position: 'absolute',
+                  top: 2,
+                  left: stackDraw2 ? 16 : 2,
+                  width: 14,
+                  height: 14,
+                  borderRadius: '50%',
+                  background: '#fff',
+                  transition: 'left 0.2s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                }} />
+              </div>
             </button>
-            <div style={{
-              marginTop: 6,
-              fontSize: 10,
-              color: 'rgba(255,255,255,0.25)',
-              fontFamily: "'Poppins',sans-serif",
-              paddingLeft: 2,
-            }}>
-              Counter a +2 with another +2 — stacks until someone can't
-            </div>
+
+            <button
+              type="button"
+              onClick={() => socket.emit('room:update-settings', { drawTillColor: !drawTillColor })}
+              style={{
+                width: '100%',
+                padding: '10px 16px',
+                background: drawTillColor ? 'rgba(99, 102, 241, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                border: drawTillColor ? '1px solid var(--accent)' : '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: 10,
+                color: drawTillColor ? '#fff' : 'var(--text-secondary)',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                <span>Draw Till Color Match</span>
+                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 400 }}>Must draw until matching color/wild (Autoplayed!)</span>
+              </div>
+              <div style={{
+                width: 32,
+                height: 18,
+                borderRadius: 99,
+                background: drawTillColor ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)',
+                position: 'relative',
+                transition: 'background 0.2s ease',
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: 2,
+                  left: drawTillColor ? 16 : 2,
+                  width: 14,
+                  height: 14,
+                  borderRadius: '50%',
+                  background: '#fff',
+                  transition: 'left 0.2s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                }} />
+              </div>
+            </button>
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-40px); }
-        }
-        @keyframes slideInDown {
-          from { opacity: 0; transform: translateY(-40px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideInLeft {
-          from { opacity: 0; transform: translateX(-40px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-20px); }
-        }
-        @keyframes fadeInScale {
-          from { opacity: 0; transform: scale(0.9); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        @keyframes slideInUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        ::-webkit-scrollbar {
-          width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-          background: rgba(255,255,255,0.15);
-          border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: rgba(255,255,255,0.25);
-        }
-      `}</style>
     </div>
   );
 }
