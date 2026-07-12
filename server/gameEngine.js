@@ -271,8 +271,12 @@ function drawCard(game, playerId) {
       const drawnCard = cardArray[0];
       drawn.push(drawnCard);
       
-      // Check if it matches currentColor
-      if (drawnCard.color === game.currentColor || drawnCard.color === 'wild') {
+      // If it is a Wild card, stop drawing but do NOT autoplay it (let player choose color)
+      if (drawnCard.color === 'wild') {
+        break;
+      }
+      // If it matches table color, stop drawing and autoplay it
+      if (drawnCard.color === game.currentColor) {
         matchingCard = drawnCard;
         break;
       }
@@ -283,7 +287,7 @@ function drawCard(game, playerId) {
     if (cardArray.length > 0) {
       const drawnCard = cardArray[0];
       drawn.push(drawnCard);
-      if (drawnCard.color === game.currentColor || drawnCard.color === 'wild') {
+      if (drawnCard.color !== 'wild' && drawnCard.color === game.currentColor) {
         matchingCard = drawnCard;
       }
     }
@@ -353,17 +357,24 @@ function drawCard(game, playerId) {
       }
       
       game.lastActivity = Date.now();
-      return { success: true, game, drawn, canPlayDrawn: true };
+      return { success: true, game, drawn, canPlayDrawn: true, autoPlayed: true };
     } else {
-      game.log.push(`${currentPlayer.name} draws a card`);
-      game.currentPlayerIndex = nextPlayerIndex(game);
-      game.turnTimerStart = Date.now();
+      const lastDrawn = drawn[drawn.length - 1];
+      const topCard = game.discardPile[game.discardPile.length - 1];
+      const canPlayDrawn = lastDrawn && canPlay(lastDrawn, topCard, game.currentColor, 0, false);
+
+      game.log.push(`${currentPlayer.name} draws ${drawn.length} card${drawn.length > 1 ? 's' : ''}`);
+
+      if (!canPlayDrawn) {
+        game.currentPlayerIndex = nextPlayerIndex(game);
+        game.turnTimerStart = Date.now();
+      }
       game.lastActivity = Date.now();
-      return { success: true, game, drawn, canPlayDrawn: false };
+      return { success: true, game, drawn, canPlayDrawn, autoPlayed: false };
     }
   }
 
-  return { success: true, game, drawn, canPlayDrawn: false };
+  return { success: true, game, drawn, canPlayDrawn: false, autoPlayed: false };
 }
 
 function callUno(game, playerId) {

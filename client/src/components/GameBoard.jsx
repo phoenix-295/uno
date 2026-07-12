@@ -22,6 +22,9 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
   const [drawnCard, setDrawnCard] = useState(null);
   const [playableDrawnCard, setPlayableDrawnCard] = useState(null);
   const [drawnCardMessage, setDrawnCardMessage] = useState('');
+  const [autoplayState, setAutoplayState] = useState(null);
+  const [activeAnimations, setActiveAnimations] = useState([]);
+  const [autoMode, setAutoMode] = useState(false);
   const [muted, setMuted] = useState(() => {
     try {
       return localStorage.getItem('uno_muted') === 'true';
@@ -35,6 +38,49 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
   const { hand, topCard, currentColor, players, currentPlayerIndex, status, winner, log, deckCount, timeRemaining, drawPending, stackDraw2 } = gameState;
   const me = players.find(p => p.id === playerId);
   const isMyTurn = me && players[currentPlayerIndex]?.id === playerId;
+
+  React.useEffect(() => {
+    if (isMyTurn && autoMode && status === 'playing') {
+      const timer = setTimeout(() => {
+        if (showColorPicker && pendingWild) {
+          const chosen = ['red', 'green', 'blue', 'yellow'].find(c => c === currentColor) || 'red';
+          socket.emit('card:play', { cardId: pendingWild.id, chosenColor: chosen });
+          setShowColorPicker(false);
+          setPendingWild(null);
+          setSelectedCard(null);
+          return;
+        }
+
+        if (playableDrawnCard) {
+          if (playableDrawnCard.value === 'wild' || playableDrawnCard.value === 'wild4') {
+            const chosen = ['red', 'green', 'blue', 'yellow'].find(c => c === currentColor) || 'red';
+            socket.emit('card:play', { cardId: playableDrawnCard.id, chosenColor: chosen });
+          } else {
+            socket.emit('card:play', { cardId: playableDrawnCard.id });
+          }
+          setPlayableDrawnCard(null);
+          setDrawnCardMessage('');
+          return;
+        }
+
+        const cardToPlay = (hand || []).find(c => canPlayCard(c));
+        if (cardToPlay) {
+          if (cardToPlay.value === 'wild' || cardToPlay.value === 'wild4') {
+            const chosen = ['red', 'green', 'blue', 'yellow'].find(c => c === currentColor) || 'red';
+            socket.emit('card:play', { cardId: cardToPlay.id, chosenColor: chosen });
+          } else {
+            setSelectedCard(cardToPlay.id);
+            setCardPlayed(cardToPlay.id);
+            setTimeout(() => setCardPlayed(null), 600);
+            socket.emit('card:play', { cardId: cardToPlay.id });
+          }
+        } else {
+          socket.emit('card:draw');
+        }
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [isMyTurn, autoMode, hand, showColorPicker, pendingWild, playableDrawnCard, status, currentColor]);
 
   const toggleMute = () => {
     setMuted(prev => {
@@ -159,20 +205,91 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
     }
   }, [timeRemaining, isDangerTime, isMyTurn]);
 
-  // Listen for drawn card that can be played
+  // Listen for drawn card that can be played & autoplay animations
   React.useEffect(() => {
     const handleCardDrawn = ({ card, message }) => {
       setPlayableDrawnCard(card);
       setDrawnCardMessage(message);
+
+      // If a Wild/Wild4 card is drawn, immediately pop open the color picker!
+      if (card && (card.value === 'wild' || card.value === 'wild4')) {
+        setPendingWild(card);
+        setShowColorPicker(true);
+        setSelectedCard(card.id);
+      }
+
       setTimeout(() => {
         setPlayableDrawnCard(null);
         setDrawnCardMessage('');
       }, 8000);
     };
 
+    const handleAutoplayAnimation = ({ card, allDrawn }) => {
+      playSynthesizedSound('draw');
+      setAutoplayState({ card, stage: 'draw' });
+
+      setTimeout(() => {
+        playSynthesizedSound('play');
+        setAutoplayState({ card, stage: 'play' });
+      }, 650);
+
+      setTimeout(() => {
+        setAutoplayState(null);
+      }, 1300);
+    };
+
     socket.on('card:drawn', handleCardDrawn);
-    return () => socket.off('card:drawn', handleCardDrawn);
-  }, [socket]);
+    socket.on('card:autoplay-animation', handleAutoplayAnimation);
+    return () => {
+      socket.off('card:drawn', handleCardDrawn);
+      socket.off('card:autoplay-animation', handleAutoplayAnimation);
+    };
+  }, [socket, muted]);
+
+  const getPlayerCoords = (pid) => {
+    const N = players.length;
+    const pIdx = players.findIndex(pl => pl.id === pid);
+    if (pIdx === -1) return { x: 50, y: 85 };
+    const myIdx = players.findIndex(pl => pl.id === playerId);
+    const offset = (pIdx - myIdx + N) % N;
+    const angle = (Math.PI / 2) + (offset * 2 * Math.PI / N);
+    const xPct = 50 + 40 * Math.cos(angle);
+    const yPct = 50 + 36 * Math.sin(angle);
+    return { x: xPct, y: yPct };
+  };
+
+  React.useEffect(() => {
+    const handleAnimatePlay = ({ playerId: pid, card }) => {
+      playSynthesizedSound('play');
+      const from = getPlayerCoords(pid);
+      const to = { x: 58, y: 50 };
+      const id = Math.random().toString();
+      setActiveAnimations(prev => [...prev, { id, card, from, to, isBack: false }]);
+      setTimeout(() => {
+        setActiveAnimations(prev => prev.filter(a => a.id !== id));
+      }, 600);
+    };
+
+    const handleAnimateDraw = ({ playerId: pid, card }) => {
+      if (pid === playerId && autoplayState) return;
+      playSynthesizedSound('draw');
+      const from = { x: 42, y: 50 };
+      const to = getPlayerCoords(pid);
+      const id = Math.random().toString();
+      const isMe = pid === playerId;
+      setActiveAnimations(prev => [...prev, { id, card: isMe ? card : null, from, to, isBack: !isMe }]);
+      setTimeout(() => {
+        setActiveAnimations(prev => prev.filter(a => a.id !== id));
+      }, 600);
+    };
+
+    socket.on('animate:play', handleAnimatePlay);
+    socket.on('animate:draw', handleAnimateDraw);
+    return () => {
+      socket.off('animate:play', handleAnimatePlay);
+      socket.off('animate:draw', handleAnimateDraw);
+    };
+  }, [socket, players, muted, autoplayState]);
 
   const canPlayCard = (card) => {
     if (!isMyTurn) return false;
@@ -248,7 +365,7 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
     return (
       <div style={{
         minHeight: '100vh',
-        background: 'radial-gradient(circle at center, #0e122b 0%, #060814 100%)',
+        background: 'radial-gradient(circle at center, #16161a 0%, #000000 100%)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -512,6 +629,27 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
           </div>
 
           <button
+            onClick={() => setAutoMode(!autoMode)}
+            style={{
+              background: autoMode ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+              border: autoMode ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.08)',
+              color: autoMode ? '#ef4444' : 'var(--text-secondary)',
+              borderRadius: 10,
+              padding: '5px 12px',
+              cursor: 'pointer',
+              fontSize: 11,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontWeight: 700,
+              letterSpacing: 0.5,
+              transition: 'all 0.2s ease',
+            }}
+          >
+            🤖 {autoMode ? 'AUTO ON (AFK)' : 'AUTO OFF'}
+          </button>
+
+          <button
             onClick={toggleMute}
             style={{
               background: 'rgba(255, 255, 255, 0.03)',
@@ -585,6 +723,11 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
         {/* Arena Table */}
         <div style={{ flex: 1, position: 'relative', overflow: 'visible', margin: '24px 0' }}>
           
+          {/* Flying Cards Overlay */}
+          {activeAnimations.map(anim => (
+            <FlyingCard key={anim.id} anim={anim} />
+          ))}
+          
           {/* Neon Central Circular felt */}
           <div style={{
             position: 'absolute',
@@ -628,15 +771,15 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
           }}>
             {/* Draw Deck Stack */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-              <div style={{ position: 'relative', width: 80, height: 120 }}>
+              <div style={{ position: 'relative', width: 94, height: 140 }}>
                 {/* 3D layers beneath the deck */}
-                <div style={{ position: 'absolute', inset: 0, borderRadius: 14, background: '#090514', transform: 'translate(4px, 4px)', border: '1px solid rgba(255,255,255,0.03)' }} />
-                <div style={{ position: 'absolute', inset: 0, borderRadius: 14, background: '#1e1b4b', transform: 'translate(2px, 2px)', border: '1px solid rgba(255,255,255,0.05)' }} />
+                <div style={{ position: 'absolute', inset: 0, borderRadius: 10, background: '#090514', transform: 'translate(4px, 4px)', border: '1px solid rgba(255,255,255,0.03)' }} />
+                <div style={{ position: 'absolute', inset: 0, borderRadius: 10, background: '#1e1b4b', transform: 'translate(2px, 2px)', border: '1px solid rgba(255,255,255,0.05)' }} />
                 {hasNoPlayableCards && (
                   <div style={{
                     position: 'absolute',
-                    inset: -8,
-                    borderRadius: 18,
+                    inset: -6,
+                    borderRadius: 14,
                     border: '3px solid var(--color-yellow-start)',
                     boxShadow: '0 0 20px var(--color-yellow-glow)',
                     pointerEvents: 'none',
@@ -990,8 +1133,8 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
                 {playableDrawnCard && card.id === playableDrawnCard.id && (
                   <div style={{
                     position: 'absolute',
-                    inset: -6,
-                    borderRadius: 16,
+                    inset: -4,
+                    borderRadius: 12,
                     border: '2px solid var(--color-green-start)',
                     boxShadow: '0 0 14px var(--color-green-glow)',
                     pointerEvents: 'none',
@@ -1069,6 +1212,25 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
         </div>
       )}
 
+      {/* Autoplay card animation overlay */}
+      {autoplayState && (
+        <div
+          style={{
+            position: 'fixed',
+            zIndex: 99999,
+            pointerEvents: 'none',
+            left: autoplayState.stage === 'draw' ? 'calc(50% - 70px)' : '50%',
+            top: autoplayState.stage === 'draw' ? '50%' : '85%',
+            transform: 'translate(-50%, -50%)',
+            animation: autoplayState.stage === 'draw'
+              ? 'autoplayDrawMove 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards'
+              : 'autoplayPlayMove 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards',
+          }}
+        >
+          <UnoCard card={autoplayState.card} isBack={autoplayState.stage === 'draw'} />
+        </div>
+      )}
+
       <style>{`
         @keyframes spin {
           from { transform: translate(-50%, -50%) rotate(0deg); }
@@ -1086,7 +1248,58 @@ export default function GameBoard({ socket, gameState, playerId, lobbyState, roo
           0%, 100% { box-shadow: 0 0 16px var(--color-yellow-glow); border-color: var(--color-yellow-start); }
           50% { box-shadow: 0 0 32px var(--color-yellow-glow), 0 0 8px #fff; border-color: #fff; }
         }
+        @keyframes autoplayDrawMove {
+          0% {
+            left: calc(50% - 70px);
+            top: 50%;
+            transform: translate(-50%, -50%) scale(1);
+          }
+          100% {
+            left: 50%;
+            top: 85%;
+            transform: translate(-50%, -50%) scale(0.9);
+          }
+        }
+        @keyframes autoplayPlayMove {
+          0% {
+            left: 50%;
+            top: 85%;
+            transform: translate(-50%, -50%) scale(0.9);
+          }
+          100% {
+            left: calc(50% + 70px);
+            top: 50%;
+            transform: translate(-50%, -50%) scale(1.05);
+          }
+        }
       `}</style>
+    </div>
+  );
+}
+
+function FlyingCard({ anim }) {
+  const [pos, setPos] = React.useState(anim.from);
+
+  React.useEffect(() => {
+    const r = requestAnimationFrame(() => {
+      setPos(anim.to);
+    });
+    return () => cancelAnimationFrame(r);
+  }, [anim]);
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        zIndex: 999,
+        left: `${pos.x}%`,
+        top: `${pos.y}%`,
+        transform: 'translate(-50%, -50%) rotate(15deg)',
+        transition: 'left 0.6s cubic-bezier(0.25, 0.8, 0.25, 1), top 0.6s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.6s ease',
+        pointerEvents: 'none',
+      }}
+    >
+      <UnoCard card={anim.card} isBack={anim.isBack} small={true} />
     </div>
   );
 }

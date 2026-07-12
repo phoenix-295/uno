@@ -377,6 +377,10 @@ io.on('connection', (socket) => {
       }
     }
     
+    // Emit play animation event to the room
+    const playedCard = room.game.discardPile[room.game.discardPile.length - 1];
+    io.to(roomId).emit('animate:play', { playerId, card: playedCard });
+
     // Immediate broadcast for card play - critical for real-time feel
     broadcastRoom(roomId);
     
@@ -397,19 +401,46 @@ io.on('connection', (socket) => {
 
     room.game.turnTimerStart = Date.now();
 
-    // If the drawn card is playable, notify the player
-    if (result.canPlayDrawn && result.drawn && result.drawn[0]) {
-      const drawnCard = result.drawn[0];
+    if (room.game.status === 'finished' && room.game.winnerScore !== undefined) {
+      const winnerPlayer = room.players.find(p => p.id === room.game.winner.id);
+      if (winnerPlayer && !room.game.scoreAdded) {
+        winnerPlayer.score = (winnerPlayer.score || 0) + room.game.winnerScore;
+        room.game.scoreAdded = true;
+      }
+    }
+
+    // If autoplay was triggered (matching card found and played)
+    if (result.autoPlayed && result.drawn && result.drawn.length > 0) {
+      const autoplayedCard = result.drawn[result.drawn.length - 1];
+      socket.emit('card:autoplay-animation', {
+        card: autoplayedCard,
+        allDrawn: result.drawn,
+      });
+
+      // Delay the board update so the player can watch the animation
+      setTimeout(() => {
+        broadcastRoom(roomId);
+        broadcastTimerUpdate(roomId);
+      }, 1500);
+      return;
+    }
+
+    // Emit draw animation event to the room
+    if (result.drawn && result.drawn.length > 0) {
+      io.to(roomId).emit('animate:draw', { playerId, count: result.drawn.length, card: result.drawn[result.drawn.length - 1] });
+    }
+
+    // If card is playable but not autoplayed (like drawing a Wild/Wild4 card)
+    if (result.canPlayDrawn && result.drawn && result.drawn.length > 0) {
+      const drawnCard = result.drawn[result.drawn.length - 1];
       socket.emit('card:drawn', {
         card: drawnCard,
-        message: `You drew a ${drawnCard.color} ${drawnCard.value}! You can play it now or skip.`
+        message: `You drew a ${drawnCard.color === 'wild' ? 'Wild' : drawnCard.color} ${drawnCard.value}! Choose a color to play it.`
       });
     }
 
-    // Immediate broadcast for draw action
+    // Standard draw action broadcast
     broadcastRoom(roomId);
-    
-    // Also send immediate timer update
     broadcastTimerUpdate(roomId);
   });
 
