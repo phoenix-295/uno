@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import AdUnit from './AdUnit';
+import InfoTabs from './InfoTabs';
 
 export default function Lobby({ socket, onJoined }) {
   const [name, setName] = useState('');
@@ -318,18 +318,6 @@ export default function Lobby({ socket, onJoined }) {
           </div>
         </div>
 
-        {/* Ad Space */}
-        <div style={{
-          width: '100%',
-          marginTop: 24,
-          borderRadius: 16,
-          overflow: 'hidden',
-          background: 'rgba(255,255,255,0.01)',
-          border: '1px dashed rgba(255,255,255,0.05)',
-        }}>
-          <AdUnit adSlot="8007516946" />
-        </div>
-
         {/* Room limit info */}
         <div style={{
           marginTop: 24,
@@ -341,6 +329,8 @@ export default function Lobby({ socket, onJoined }) {
           2–8 players • Real-time synchronization
         </div>
       </div>
+
+      <InfoTabs />
 
       <style>{`
         @keyframes shake {

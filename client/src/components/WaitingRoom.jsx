@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import AdUnit from './AdUnit';
 
 const COLOR_DOT = ['var(--color-red-start, #ff3366)', 'var(--color-green-start, #00f5a0)', 'var(--color-blue-start, #00c6ff)', 'var(--color-yellow-start, #f7b733)', '#9b5de5', '#ff6b9d', '#00d2d3', '#ffd93d'];
 
@@ -367,17 +366,7 @@ export default function WaitingRoom({ socket, roomId, playerId, lobbyState }) {
           </button>
         )}
       </div>
-
-      {/* Ad Space */}
-      <div style={{
-        width: '100%',
-        maxWidth: 500,
-        marginTop: 20,
-        borderRadius: 16,
-        overflow: 'hidden',
-      }}>
-        <AdUnit adSlot="8007516946" />
-      </div>
+      {/* Ready and Host controls */}
 
       {players.length < 2 && (
         <p style={{
